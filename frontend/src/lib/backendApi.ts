@@ -181,6 +181,20 @@ export const backendApi = {
     return res.json() as Promise<{ status: string; total_found: number; imported: number; results: any[] }>
   },
 
+  // ─── Risk Scores ───
+
+  async listRiskScores(userId: string, limit = 50) {
+    const res = await fetch(`${API_BASE}/api/risk/scores?user_id=${encodeURIComponent(userId)}&limit=${limit}`)
+    if (!res.ok) return []
+    return res.json() as Promise<any[]>
+  },
+
+  async getDrawingRiskScores(drawingId: string, userId: string) {
+    const res = await fetch(`${API_BASE}/api/risk/scores/${encodeURIComponent(drawingId)}?user_id=${encodeURIComponent(userId)}`)
+    if (!res.ok) return []
+    return res.json() as Promise<any[]>
+  },
+
   async unreadAlertCount(userId: string) {
     const res = await fetch(`${API_BASE}/api/alerts-proxy/unread-count?user_id=${encodeURIComponent(userId)}`)
     if (!res.ok) return { count: 0 }
