@@ -25,6 +25,7 @@ export default function DiffView() {
   const [drawing, setDrawing] = useState<Drawing | null>(null)
   const [revs, setRevs] = useState<Revision[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [selectedPrev, setSelectedPrev] = useState<string>('')
   const [selectedCurr, setSelectedCurr] = useState<string>('')
   const [diffing, setDiffing] = useState(false)
@@ -32,7 +33,12 @@ export default function DiffView() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!id) { setLoading(false); return }
+    const t = setTimeout(() => setInitialLoading(false), 400)
+    return () => clearTimeout(t)
+  }, [])
+
+  useEffect(() => {
+    if (!id) return
     loadDrawing()
   }, [id])
 
@@ -77,6 +83,14 @@ export default function DiffView() {
       setError(e.message)
     }
     setDiffing(false)
+  }
+
+  if (initialLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 size={24} className="text-graphite animate-spin" />
+      </div>
+    )
   }
 
   if (!id) {

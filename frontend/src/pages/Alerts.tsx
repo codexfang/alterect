@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 export default function Alerts() {
-  const [loading] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 400)
+    return () => clearTimeout(t)
+  }, [])
 
   if (loading) {
     return (

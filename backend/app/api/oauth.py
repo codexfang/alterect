@@ -1,26 +1,18 @@
-"""
-OAuth routes for third-party integrations (Dropbox, Box, Procore, BIM 360, Slack).
-"""
-
-import uuid
 import secrets
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import httpx
+from supabase import create_client, Client
 
 from app.core.config import settings
-from app.core.database import get_db
-from app.models import OAuthToken, OAuthState
+from app.models import OAuthState
 from app.core.database import async_session
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/oauth", tags=["oauth"])
 
 OAUTH_PROVIDERS = {
@@ -32,7 +24,6 @@ OAUTH_PROVIDERS = {
         "client_id": settings.DROPBOX_CLIENT_ID,
         "client_secret": settings.DROPBOX_CLIENT_SECRET,
     },
-
     "slack": {
         "name": "Slack",
         "authorize_url": "https://slack.com/oauth/v2/authorize",
@@ -43,27 +34,24 @@ OAUTH_PROVIDERS = {
     },
 }
 
+supabase: Client | None = None
+if settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY:
+    supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
 
 def generate_state() -> str:
     return secrets.token_urlsafe(32)
 
 
 @router.get("/{provider}/login")
-async def oauth_login(
-    provider: str,
-    uid: str = Query(..., description="Supabase user ID"),
-    request: Request = None,
-):
-    """Redirect user to the OAuth provider's authorization page."""
+async def oauth_login(provider: str, uid: str = Query(..., description="Supabase user ID")):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
 
     config = OAUTH_PROVIDERS[provider]
     if not config["client_id"]:
         logger.warning(f"{provider} OAuth not configured — missing client_id")
-        return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}/integrations?error={provider}_not_configured"
-        )
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/integrations?error={provider}_not_configured")
 
     state = generate_state()
 
@@ -85,19 +73,17 @@ async def oauth_login(
         params["token_access_type"] = "offline"
 
     auth_url = f"{config['authorize_url']}?{'&'.join(f'{k}={v}' for k, v in params.items())}"
-
-    logger.info(f"Redirecting user {uid} to {provider} OAuth: {auth_url[:80]}...")
+    logger.info(f"Redirecting user {uid} to {provider} OAuth")
     return RedirectResponse(url=auth_url)
 
 
 @router.get("/{provider}/callback")
 async def oauth_callback(
     provider: str,
-    code: Optional[str] = Query(None),
-    state: Optional[str] = Query(None),
-    error: Optional[str] = Query(None),
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
 ):
-    """Handle OAuth callback, exchange code for tokens, store in DB."""
     if error:
         logger.warning(f"{provider} OAuth error: {error}")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/integrations?error={error}")
@@ -115,13 +101,9 @@ async def oauth_callback(
             select(OAuthState).where(OAuthState.state == state, OAuthState.provider == provider)
         )
         stored_state = result.scalar_one_or_none()
-
         if not stored_state:
-            logger.warning(f"Invalid or expired state for {provider}")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/integrations?error=invalid_state")
-
         user_id = stored_state.user_id
-
         await db.delete(stored_state)
         await db.commit()
 
@@ -138,7 +120,6 @@ async def oauth_callback(
     if provider == "dropbox":
         token_data["token_access_type"] = "offline"
 
-    token_url = config["token_url"]
     headers = {"Accept": "application/json"}
 
     try:
@@ -147,94 +128,60 @@ async def oauth_callback(
                 auth_str = f"{config['client_id']}:{config['client_secret']}"
                 import base64
                 headers["Authorization"] = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
-                # Don't send client_id/client_secret in body when using Basic auth
                 token_data.pop("client_id", None)
                 token_data.pop("client_secret", None)
 
-            if provider == "slack":
-                token_resp = await client.post(token_url, data=token_data, headers=headers)
-            else:
-                token_resp = await client.post(token_url, data=token_data, headers=headers)
-
+            token_resp = await client.post(config["token_url"], data=token_data, headers=headers)
             token_resp.raise_for_status()
             token_json = token_resp.json()
 
         access_token = token_json.get("access_token")
         refresh_token = token_json.get("refresh_token")
-        scopes = token_json.get("scope", "")
 
-        async with async_session() as db:
-            existing = await db.execute(
-                select(OAuthToken).where(
-                    OAuthToken.user_id == user_id,
-                    OAuthToken.provider == provider,
-                )
-            )
-            existing_token = existing.scalar_one_or_none()
-
-            if existing_token:
-                existing_token.access_token = access_token
-                existing_token.refresh_token = refresh_token
-                existing_token.scopes = scopes
-                existing_token.connected = True
-                existing_token.updated_at = datetime.now(timezone.utc)
+        # Store tokens in Supabase (persistent across restarts)
+        if supabase:
+            existing = supabase.table("integrations").select("*").eq("user_id", user_id).eq("provider", provider).maybe_single().execute()
+            now = datetime.now(timezone.utc).isoformat()
+            if existing.data:
+                supabase.table("integrations").update({
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "connected": True,
+                    "updated_at": now,
+                }).eq("id", existing.data["id"]).execute()
             else:
-                db.add(OAuthToken(
-                    user_id=user_id,
-                    provider=provider,
-                    access_token=access_token,
-                    refresh_token=refresh_token,
-                    scopes=scopes,
-                    connected=True,
-                ))
+                supabase.table("integrations").insert({
+                    "user_id": user_id,
+                    "provider": provider,
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "connected": True,
+                }).execute()
 
-            await db.commit()
-
-        logger.info(f"Successfully connected {provider} for user {user_id}")
-        return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}/integrations?connected={provider}"
-        )
+        logger.info(f"Connected {provider} for user {user_id}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/integrations?connected={provider}")
 
     except httpx.HTTPError as e:
         logger.error(f"Token exchange failed for {provider}: {e}")
-        return RedirectResponse(
-            url=f"{settings.FRONTEND_URL}/integrations?error=token_exchange_failed"
-        )
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/integrations?error=token_exchange_failed")
 
 
 @router.get("/status")
 async def oauth_status(uid: str = Query(..., description="Supabase user ID")):
-    """Return connection status for all providers for a given user."""
-    async with async_session() as db:
-        result = await db.execute(
-            select(OAuthToken).where(
-                OAuthToken.user_id == uid,
-                OAuthToken.connected == True,
-            )
-        )
-        tokens = result.scalars().all()
-
-    connected = [t.provider for t in tokens]
+    if not supabase:
+        return {"connected": []}
+    result = supabase.table("integrations").select("provider").eq("user_id", uid).eq("connected", True).execute()
+    connected = [row["provider"] for row in (result.data or [])]
     return {"connected": connected}
 
 
 @router.post("/{provider}/disconnect")
 async def oauth_disconnect(provider: str, uid: str = Query(...)):
-    """Disconnect a provider integration for a user."""
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
-
-    async with async_session() as db:
-        result = await db.execute(
-            select(OAuthToken).where(
-                OAuthToken.user_id == uid,
-                OAuthToken.provider == provider,
-            )
-        )
-        token = result.scalar_one_or_none()
-        if token:
-            token.connected = False
-            token.updated_at = datetime.now(timezone.utc)
-            await db.commit()
-
+    if supabase:
+        supabase.table("integrations").update({
+            "connected": False,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("user_id", uid).eq("provider", provider).execute()
     return {"status": "disconnected", "provider": provider}
