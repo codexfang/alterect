@@ -32,6 +32,12 @@ export const backendApi = {
     return res.json() as Promise<any[]>
   },
 
+  async listAllRevisions(userId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/all-revisions?user_id=${encodeURIComponent(userId)}`)
+    if (!res.ok) return []
+    return res.json() as Promise<any[]>
+  },
+
   async getOrCreateDefaultProject(userId: string) {
     const res = await fetch(`${API_BASE}/api/drawings-proxy/projects/default?user_id=${encodeURIComponent(userId)}`)
     if (!res.ok) return null

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
 import { backendApi } from '@/lib/backendApi'
-import type { Drawing } from '@/lib/db'
 
 const DISCIPLINES = [
   { value: '', label: 'Auto-detect' },
@@ -22,7 +21,9 @@ export default function Drawings() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [search, setSearch] = useState('')
-  const [drawingList, setDrawingList] = useState<Drawing[]>([])
+  const [items, setItems] = useState<any[]>([])
+  const [drawingId, setDrawingId] = useState<string | null>(null)
+  const [sheetName, setSheetName] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -31,18 +32,25 @@ export default function Drawings() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (user) loadDrawings()
+    if (user) loadItems()
   }, [user])
 
-  const loadDrawings = async () => {
+  const loadItems = async () => {
     setLoading(true)
     try {
-      if (user) {
-        const list = await backendApi.listDrawings(user.id)
-        setDrawingList(list)
+      if (!user) return
+      const drawings = await backendApi.listDrawings(user.id)
+      if (drawings.length > 0) {
+        const d = drawings[0]
+        setDrawingId(d.id)
+        setSheetName(d.sheet_name)
+        const revs = await backendApi.listAllRevisions(user.id)
+        setItems(revs)
+      } else {
+        setItems([])
       }
     } catch (e) {
-      console.error('Failed to load drawings:', e)
+      console.error('Failed to load:', e)
     }
     setLoading(false)
   }
@@ -55,33 +63,36 @@ export default function Drawings() {
     setUploadError('')
 
     try {
-      await backendApi.uploadDrawing(file, user.id, discipline)
-      await loadDrawings()
+      const result = await backendApi.uploadDrawing(file, user.id, discipline)
+      setSheetName(result.drawing.sheet_name)
+      setDrawingId(result.drawing.id)
+      await loadItems()
     } catch (e: any) {
       setUploadError(e.message)
-      console.error('Upload failed:', e.message)
     }
 
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const handleDelete = async (drawingId: string, name: string) => {
-    if (!window.confirm(`Delete "${name}" and all its revisions?`)) return
+  const handleDelete = async (drawingId: string) => {
+    if (!window.confirm('Delete this drawing and all its revisions?')) return
     if (!user) return
 
     setDeleting(drawingId)
     try {
       await backendApi.deleteDrawing(drawingId, user.id)
-      await loadDrawings()
+      setDrawingId(null)
+      setItems([])
     } catch (e: any) {
       console.error('Delete failed:', e.message)
     }
     setDeleting(null)
   }
 
-  const filtered = drawingList.filter((d) =>
-    d.sheet_name.toLowerCase().includes(search.toLowerCase())
+  const filtered = items.filter((r) =>
+    r.revision_number.toString().includes(search) ||
+    sheetName.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -90,8 +101,8 @@ export default function Drawings() {
         <div>
           <h1 className="text-heading-sm text-ink">Drawings</h1>
           <p className="text-body text-graphite mt-1">
-            {drawingList.length > 0
-              ? `${drawingList.length} drawing${drawingList.length !== 1 ? 's' : ''} uploaded`
+            {items.length > 0
+              ? `${items.length} upload${items.length !== 1 ? 's' : ''}`
               : 'Upload and manage your drawing sheets.'}
           </p>
         </div>
@@ -102,7 +113,7 @@ export default function Drawings() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search drawings..."
+              placeholder="Search revisions..."
               className="w-48 pl-9 pr-4 py-2 bg-white rounded-[12px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 transition-all border border-dove/10"
             />
           </div>
@@ -154,7 +165,7 @@ export default function Drawings() {
               <FileText size={24} className="text-graphite" />
             </div>
             <h3 className="text-subheading text-ink mb-1">
-              {search ? 'No matching drawings' : 'No drawings yet'}
+              {search ? 'No matching uploads' : 'No drawings yet'}
             </h3>
             <p className="text-body text-graphite mb-6 max-w-sm text-center">
               {search
@@ -175,34 +186,28 @@ export default function Drawings() {
             <thead>
               <tr className="border-b border-dove/10">
                 <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Sheet Name</th>
-                <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Discipline</th>
                 <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Revision</th>
                 <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Uploaded</th>
                 <th className="text-right text-caption text-graphite font-[430] px-5 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((d) => (
-                <tr key={d.id} className="border-b border-dove/10 last:border-0 hover:bg-fog/50 transition-colors">
+              {filtered.map((r) => (
+                <tr key={r.id} className="border-b border-dove/10 last:border-0 hover:bg-fog/50 transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-fog rounded-lg flex items-center justify-center">
                         <FileText size={14} className="text-graphite" />
                       </div>
-                      <span className="text-body text-ink font-[450]">{d.sheet_name}</span>
+                      <span className="text-body text-ink font-[450]">{sheetName}</span>
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <span className="text-body text-graphite capitalize">
-                      {d.discipline ?? '—'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-body text-ink">Rev {d.current_revision}</span>
+                    <span className="text-body text-ink">Rev {r.revision_number}</span>
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-body text-graphite">
-                      {new Date(d.created_at).toLocaleDateString('en-US', {
+                      {new Date(r.created_at).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
@@ -211,9 +216,9 @@ export default function Drawings() {
                   </td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      {d.file_url && (
+                      {r.file_url && (
                         <a
-                          href={d.file_url}
+                          href={r.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-body text-rust hover:text-rust/80 transition-colors"
@@ -222,24 +227,14 @@ export default function Drawings() {
                         </a>
                       )}
                       <span className="text-dove/30 text-body font-light select-none">/</span>
-                      <button
-                        onClick={() => navigate(`/diffs/${d.id}`)}
-                        className="text-body text-graphite hover:text-ink transition-colors"
-                      >
-                        Compare
-                      </button>
-                      <span className="text-dove/20 text-body font-light select-none">/</span>
-                      <button
-                        onClick={() => handleDelete(d.id, d.sheet_name)}
-                        disabled={deleting === d.id}
-                        className="text-body text-red-400 hover:text-red-600 transition-colors disabled:opacity-40"
-                      >
-                        {deleting === d.id ? (
-                          <Loader2 size={14} className="animate-spin inline" />
-                        ) : (
-                          'Delete'
-                        )}
-                      </button>
+                      {drawingId && (
+                        <button
+                          onClick={() => navigate(`/diffs/${drawingId}`)}
+                          className="text-body text-graphite hover:text-ink transition-colors"
+                        >
+                          Compare
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

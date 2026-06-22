@@ -239,6 +239,38 @@ async def list_drawings(user_id: str = Query(...)):
         return resp.json()
 
 
+@router.get("/all-revisions")
+async def list_all_revisions(user_id: str = Query(...)):
+    """Return all revisions across all user's drawings (for the timeline view)."""
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    async with httpx.AsyncClient() as client:
+        drawings_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=_headers(),
+            params={"user_id": f"eq.{user_id}", "select": "id"},
+        )
+        if drawings_resp.status_code != 200:
+            return []
+        drawing_ids = [d["id"] for d in drawings_resp.json()]
+        if not drawing_ids:
+            return []
+
+        all_revisions = []
+        for did in drawing_ids:
+            rev_resp = await client.get(
+                f"{_SUPABASE_REST_URL}/revisions",
+                headers=_headers(),
+                params={"drawing_id": f"eq.{did}", "select": "*", "order": "revision_number.desc"},
+            )
+            if rev_resp.status_code == 200:
+                all_revisions.extend(rev_resp.json())
+
+        all_revisions.sort(key=lambda r: r.get("revision_number", 0), reverse=True)
+        return all_revisions
+
+
 @router.get("/revisions")
 async def list_revisions(drawing_id: str = Query(...)):
     if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
