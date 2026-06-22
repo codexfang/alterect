@@ -33,6 +33,82 @@ OAUTH_PROVIDERS = {
     },
 }
 
+# Supabase REST API helpers for persistent token storage
+_SUPABASE_REST_URL: str | None = None
+_SUPABASE_KEY: str | None = None
+
+if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+    _SUPABASE_REST_URL = f"{settings.SUPABASE_URL}/rest/v1"
+    _SUPABASE_KEY = settings.SUPABASE_SERVICE_ROLE_KEY.strip()
+
+
+async def _supabase_upsert(user_id: str, provider: str, access_token: str | None, refresh_token: str | None):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        return
+    headers = {
+        "apikey": _SUPABASE_KEY,
+        "Authorization": f"Bearer {_SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{_SUPABASE_REST_URL}/integrations",
+                headers=headers,
+                json={
+                    "user_id": user_id,
+                    "provider": provider,
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "connected": True,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+    except Exception as e:
+        logger.warning(f"Supabase upsert failed for {provider}: {e}")
+
+
+async def _supabase_status(uid: str) -> list[str]:
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        return []
+    headers = {
+        "apikey": _SUPABASE_KEY,
+        "Authorization": f"Bearer {_SUPABASE_KEY}",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{_SUPABASE_REST_URL}/integrations",
+                headers=headers,
+                params={"user_id": f"eq.{uid}", "connected": "eq.true", "select": "provider"},
+            )
+            if resp.status_code == 200:
+                return [row["provider"] for row in resp.json()]
+    except Exception as e:
+        logger.warning(f"Supabase status check failed: {e}")
+    return []
+
+
+async def _supabase_disconnect(uid: str, provider: str):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        return
+    headers = {
+        "apikey": _SUPABASE_KEY,
+        "Authorization": f"Bearer {_SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.patch(
+                f"{_SUPABASE_REST_URL}/integrations",
+                headers=headers,
+                params={"user_id": f"eq.{uid}", "provider": f"eq.{provider}"},
+                json={"connected": False, "updated_at": datetime.now(timezone.utc).isoformat()},
+            )
+    except Exception as e:
+        logger.warning(f"Supabase disconnect failed: {e}")
+
 
 def generate_state() -> str:
     return secrets.token_urlsafe(32)
@@ -161,6 +237,9 @@ async def oauth_callback(
 
             await db.commit()
 
+        # Also persist to Supabase for cross-restart durability
+        await _supabase_upsert(user_id, provider, access_token, refresh_token)
+
         logger.info(f"Successfully connected {provider} for user {user_id}")
         return RedirectResponse(
             url=f"{settings.FRONTEND_URL}/integrations?connected={provider}"
@@ -175,6 +254,11 @@ async def oauth_callback(
 
 @router.get("/status")
 async def oauth_status(uid: str = Query(..., description="Supabase user ID")):
+    # Try Supabase first (persistent), fall back to SQLite (ephemeral)
+    supabase_connected = await _supabase_status(uid)
+    if supabase_connected:
+        return {"connected": supabase_connected}
+
     async with async_session() as db:
         result = await db.execute(
             select(OAuthToken).where(
@@ -192,6 +276,8 @@ async def oauth_status(uid: str = Query(..., description="Supabase user ID")):
 async def oauth_disconnect(provider: str, uid: str = Query(...)):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+
+    await _supabase_disconnect(uid, provider)
 
     async with async_session() as db:
         result = await db.execute(
