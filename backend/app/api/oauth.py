@@ -54,7 +54,7 @@ async def _supabase_upsert(user_id: str, provider: str, access_token: str | None
     try:
         async with httpx.AsyncClient() as client:
             await client.post(
-                f"{_SUPABASE_REST_URL}/integrations",
+                f"{_SUPABASE_REST_URL}/integrations?on_conflict=user_id,provider",
                 headers=headers,
                 json={
                     "user_id": user_id,
