@@ -1,127 +1,80 @@
 # Alterect
 
-**Git for construction drawings.** Automatically detect changes between blueprint revisions, alert affected trades, and predict rework costs.
+Git for construction drawings — automatically detect changes between blueprint revisions, alert affected trades, and predict rework costs.
 
-## Overview
+## Live
 
-Alterect is the single source of truth for construction drawing revisions. GCs, subcontractors, and architects upload PDF drawings (or integrate via Dropbox/Procore). The system automatically detects every change, classifies by trade, sends targeted alerts, and predicts impact costs.
-
-## Architecture
-
-```
-alterect-platform/
-├── frontend/          # React 18 + TypeScript + Tailwind CSS v4 + Framer Motion
-├── backend/           # FastAPI + PostgreSQL + Redis + Celery
-├── ml/                # Change detection & symbol classification
-└── docker-compose.yml # Local development environment
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 20+
-- Python 3.12+
-- Docker & Docker Compose (for PostgreSQL + Redis)
-
-### 1. Clone and install
-
-```bash
-git clone https://github.com/alterect/platform.git
-cd alterect-platform
-```
-
-### 2. Start infrastructure
-
-```bash
-docker compose up db redis -d
-```
-
-### 3. Backend
-
-```bash
-cd backend
-cp ../.env.example .env
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### 4. Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:5173
-
-### 5. Full stack (Docker)
-
-```bash
-docker compose up --build
-```
-
-## API Documentation
-
-Once the backend is running, visit:
-
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-### Key Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/signup` | Create account |
-| POST | `/api/auth/login` | Sign in |
-| GET | `/api/auth/me` | Current user |
-| POST | `/api/drawings/upload` | Upload PDF drawing |
-| POST | `/api/drawings/diff` | Compare two drawings |
-| GET | `/api/drawings/{id}/timeline` | Version history |
-| GET | `/api/drawings/{id}/changes` | Filtered changes |
-| POST | `/api/alerts/subscribe` | Subscribe to trade alerts |
-| POST | `/api/query/natural` | AI natural language query |
-| POST | `/api/webhooks/procore` | Procore integration |
+- **Frontend**: https://codexfang.github.io/alterect/
+- **Backend**: https://alterect-api.onrender.com
 
 ## Tech Stack
 
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS v4, Framer Motion, Recharts, TanStack React Query, Lucide React
-- **Backend:** FastAPI, SQLAlchemy (async), PostgreSQL, Redis, Celery
-- **AI:** GPT-4o-mini, OpenCV, Vision Transformer (planned)
-- **Auth:** JWT with bcrypt
-- **Storage:** S3-compatible (Cloudflare R2 / AWS S3)
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS v4, Framer Motion
+- **Backend**: FastAPI, SQLAlchemy, SQLite (dev) / Supabase (prod)
+- **Auth**: Supabase (email/password)
+- **Integrations**: Dropbox OAuth, Slack OAuth
+- **Design**: "Soft dawn on a marble dashboard" — Ink, Fog, Rust, Signifier/Inter
 
-## Design System
+## Project Structure
 
-"Soft dawn on a marble dashboard" — calm, editorial, confident.
-
-- **Colors:** Ink, Fog, Ash, Graphite, Dove, Rust, Apricot Wash, Sky Wash
-- **Typography:** Signifier/Inter (body), Merriweather (headline substitute)
-- **Radius:** Cards 24px, buttons 9999px, inputs 16px
-- **Shadows:** Single `--shadow-subtle` token used consistently
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-cp .env.example .env
+```
+├── frontend/          # React + Vite (deployed to GitHub Pages)
+├── backend/           # FastAPI (deployed to Render)
+│   ├── app/
+│   │   ├── api/       # Routes (main + OAuth)
+│   │   ├── core/      # Config, database, auth
+│   │   ├── models/    # SQLAlchemy models
+│   │   └── services/  # PDF parsing, diff engine, ML
+│   └── data/          # SQLite database (dev)
+├── supabase-schema.sql
+└── .github/workflows/ # CI/CD
 ```
 
-See `.env.example` for all variables.
+## Local Development
+
+```bash
+# Frontend
+cd frontend
+cp .env.example .env    # Add your Supabase & Groq keys
+npm install
+npm run dev             # http://localhost:5173
+
+# Backend
+cd backend
+cp .env.example .env    # Add OAuth credentials
+./venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+### OAuth Setup
+
+For Dropbox and Slack integrations, register OAuth apps and set redirect URIs:
+
+| Provider | Redirect URI |
+|---|---|
+| Dropbox | `http://localhost:8000/api/oauth/dropbox/callback` |
+| Slack | `http://localhost:8000/api/oauth/slack/callback` |
+
+For production, replace `localhost:8000` with your deployed backend URL.
 
 ## Deployment
 
-- Frontend: Vercel/Netlify (`alterect.com`)
-- Backend: Railway/Render (`api.alterect.com`)
-- Database: Supabase
-- Storage: Cloudflare R2
+- **Frontend**: Push to `main` → GitHub Actions builds and deploys to GitHub Pages
+- **Backend**: Connected to Render — auto-deploys from `main`
+
+### Environment Variables
+
+**Frontend** (`frontend/.env`):
+- `VITE_SUPABASE_URL` — Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` — Supabase anonymous key
+- `VITE_GROQ_API_KEY` — Groq API key for AI chat
+
+**Backend** (`backend/.env`):
+- `DROPBOX_CLIENT_ID`, `DROPBOX_CLIENT_SECRET`
+- `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`
+- `OAUTH_REDIRECT_BASE` — Backend URL for OAuth callbacks
+- `FRONTEND_URL` — Deployed frontend URL
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` — For user ID matching
 
 ## License
 
-MIT — see LICENSE file for details.
-
----
-
-Built by the Alterect team. hello@alterect.com
+MIT
