@@ -49,7 +49,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/alterect">
+    <BrowserRouter basename="/">
       <AuthProvider>
         <ToastProvider>
           <Routes>
