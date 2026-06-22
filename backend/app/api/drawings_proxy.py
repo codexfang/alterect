@@ -364,6 +364,56 @@ async def delete_drawing(drawing_id: str = Query(...), user_id: str = Query(...)
         return {"status": "deleted", "drawing_id": drawing_id}
 
 
+@router.delete("/revisions/delete")
+async def delete_revision(revision_id: str = Query(...), user_id: str = Query(...)):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = _headers()
+    async with httpx.AsyncClient() as client:
+        rev_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/revisions",
+            headers=headers,
+            params={"id": f"eq.{revision_id}", "select": "file_url,drawing_id"},
+        )
+        if rev_resp.status_code != 200 or not rev_resp.json():
+            raise HTTPException(status_code=404, detail="Revision not found")
+        revision = rev_resp.json()[0]
+
+        # Verify ownership via drawing
+        draw_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=headers,
+            params={"id": f"eq.{revision['drawing_id']}", "select": "user_id"},
+        )
+        if draw_resp.status_code == 200 and draw_resp.json():
+            if draw_resp.json()[0].get("user_id") != user_id:
+                raise HTTPException(status_code=403, detail="Not authorized")
+
+        # Delete storage object
+        path = _extract_storage_path(revision["file_url"])
+        if path:
+            try:
+                await client.post(
+                    f"{_SUPABASE_STORAGE_URL}/object/drawings/delete",
+                    headers={**_headers(), "Content-Type": "application/json"},
+                    json={"prefixes": [path]},
+                )
+            except Exception as e:
+                logger.warning(f"Storage cleanup failed for revision: {e}")
+
+        # Delete revision record
+        del_resp = await client.delete(
+            f"{_SUPABASE_REST_URL}/revisions",
+            headers=headers,
+            params={"id": f"eq.{revision_id}"},
+        )
+        if del_resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail=f"Failed to delete revision: {del_resp.text}")
+
+        return {"status": "deleted", "revision_id": revision_id}
+
+
 # ─── PROJECTS (folders) ───
 
 @router.get("/projects/list")

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Search, FileText, Loader2, Folder, FolderPlus, Trash2, ChevronLeft } from 'lucide-react'
+import { Upload, Search, FileText, Loader2, Folder, FolderPlus, Trash2, ChevronLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
@@ -108,6 +108,17 @@ export default function Drawings() {
       console.error('Failed to create folder:', e)
     }
     setCreatingFolder(false)
+  }
+
+  const handleDeleteRevision = async (revisionId: string) => {
+    if (!window.confirm('Delete this revision?')) return
+    if (!user) return
+    try {
+      await backendApi.deleteRevision(revisionId, user.id)
+      if (selectedProject) await loadRevisionsForProject(selectedProject.id)
+    } catch (e: any) {
+      console.error('Failed to delete revision:', e)
+    }
   }
 
   const handleDeleteFolder = async (projectId: string) => {
@@ -339,6 +350,13 @@ export default function Drawings() {
                                     Compare
                                   </button>
                                 )}
+                                <span className="text-dove/30 text-body font-light select-none">/</span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteRevision(r.id) }}
+                                  className="text-dove/40 hover:text-red-400 transition-colors"
+                                >
+                                  <X size={14} />
+                                </button>
                               </div>
                             </td>
                           </tr>

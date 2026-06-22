@@ -68,4 +68,13 @@ export const backendApi = {
     }
     return res.json() as Promise<{ status: string; drawing_id: string }>
   },
+
+  async deleteRevision(revisionId: string, userId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/revisions/delete?revision_id=${encodeURIComponent(revisionId)}&user_id=${encodeURIComponent(userId)}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Delete revision failed (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string; revision_id: string }>
+  },
 }

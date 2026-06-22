@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { GitCompare, Loader2, ArrowRight, FileText, AlertTriangle, CheckCircle } from 'lucide-react'
+import { GitCompare, Loader2, ArrowRight, FileText, AlertTriangle, CheckCircle, Trash2, Plus, Minus, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useAuth } from '@/hooks/useAuth'
 import { revisions, drawings } from '@/lib/db'
+import { backendApi } from '@/lib/backendApi'
 import type { Revision, Drawing } from '@/lib/db'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
 
 interface DiffRegion {
   x: number; y: number; w: number; h: number
+  area: number
+  area_percentage: number
+  change_type: 'added' | 'removed' | 'modified'
 }
 
 interface DiffResult {
@@ -22,6 +27,7 @@ interface DiffResult {
 export default function DiffView() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [drawing, setDrawing] = useState<Drawing | null>(null)
   const [revs, setRevs] = useState<Revision[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,13 +54,26 @@ export default function DiffView() {
     setDrawing(d)
     if (d) {
       const r = await revisions.listForDrawing(d.id)
+      // r comes back revision_number.desc (newest first)
       setRevs(r)
       if (r.length >= 2) {
-        setSelectedPrev(r[r.length - 2].id)
-        setSelectedCurr(r[r.length - 1].id)
+        // Previous = newest (most recent), Current = second newest
+        setSelectedPrev(r[0].id)
+        setSelectedCurr(r[1].id)
       }
     }
     setLoading(false)
+  }
+
+  const handleDeleteRevision = async (revId: string) => {
+    if (!window.confirm('Delete this revision?')) return
+    if (!user) return
+    try {
+      await backendApi.deleteRevision(revId, user.id)
+      await loadDrawing()
+    } catch (e: any) {
+      console.error('Failed to delete revision:', e)
+    }
   }
 
   const handleCompare = async () => {
@@ -240,12 +259,26 @@ export default function DiffView() {
             <Card padding="md">
               <h3 className="text-subheading text-ink mb-3">Changed regions</h3>
               <div className="space-y-2">
-                {diffResult.regions.map((r, i) => (
-                  <div key={i} className="flex items-center gap-3 text-body text-graphite bg-fog rounded-xl px-4 py-3">
-                    <CheckCircle size={14} className="text-rust shrink-0" />
-                    <span>Region {i + 1}: ({r.x}, {r.y}) — {r.w}×{r.h}px</span>
-                  </div>
-                ))}
+                {diffResult.regions.map((r, i) => {
+                  const typeMeta = r.change_type === 'added'
+                    ? { icon: Plus, color: 'text-green-600', bg: 'bg-green-50', label: 'Added' }
+                    : r.change_type === 'removed'
+                    ? { icon: Minus, color: 'text-red-600', bg: 'bg-red-50', label: 'Removed' }
+                    : { icon: Pencil, color: 'text-orange-600', bg: 'bg-orange-50', label: 'Modified' }
+                  const Icon = typeMeta.icon
+                  return (
+                    <div key={i} className={`flex items-center gap-3 text-body text-graphite ${typeMeta.bg} rounded-xl px-4 py-3`}>
+                      <Icon size={14} className={`${typeMeta.color} shrink-0`} />
+                      <div className="flex-1 flex items-center justify-between">
+                        <span>
+                          <span className={`font-[500] ${typeMeta.color}`}>{typeMeta.label}</span>
+                          {' '}— ({r.x}, {r.y}) {r.w}×{r.h}px
+                        </span>
+                        <span className="text-caption text-graphite">{r.area_percentage}% of drawing</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </Card>
           )}
@@ -267,11 +300,19 @@ export default function DiffView() {
                   <p className="text-caption text-graphite">{r.notes || new Date(r.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
-              {r.file_url && (
-                <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="text-body text-rust hover:text-rust/80">
-                  View
-                </a>
-              )}
+              <div className="flex items-center gap-3">
+                {r.file_url && (
+                  <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="text-body text-rust hover:text-rust/80">
+                    View
+                  </a>
+                )}
+                <button
+                  onClick={() => handleDeleteRevision(r.id)}
+                  className="text-dove/40 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
