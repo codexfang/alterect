@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Play, Shield, GitBranch, Bell, Zap, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -29,8 +28,11 @@ const lineData = [
   { month: 'Feb', value: 56 },
 ]
 
-export default function HeroSection() {
-  const navigate = useNavigate()
+interface Props {
+  onJoinWaitlist?: () => void
+}
+
+export default function HeroSection({ onJoinWaitlist }: Props) {
   const [loaded, setLoaded] = useState(false)
   const [prog, setProg] = useState(0)
 
@@ -80,7 +82,7 @@ export default function HeroSection() {
           </p>
 
           <div className="flex items-center justify-center gap-4 mt-8 animate-card-entrance card-entrance-delay-4">
-            <Button size="lg" onClick={() => navigate('/signup')}>
+            <Button size="lg" onClick={onJoinWaitlist}>
               Join waitlist
               <ArrowRight size={18} className="ml-1.5" />
             </Button>
