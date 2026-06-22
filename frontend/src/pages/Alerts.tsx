@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Bell, Loader2, AlertTriangle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -26,6 +26,7 @@ const TRADE_COLORS: Record<string, string> = {
 export default function Alerts() {
   const { user } = useAuth()
   const [alerts, setAlerts] = useState<any[]>([])
+  const [riskScores, setRiskScores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -36,12 +37,32 @@ export default function Alerts() {
     if (!user) return
     setLoading(true)
     try {
-      const list = await backendApi.listAlerts(user.id)
+      const [list, scores] = await Promise.all([
+        backendApi.listAlerts(user.id),
+        backendApi.listRiskScores(user.id, 100),
+      ])
       setAlerts(list)
+      setRiskScores(scores)
     } catch (e) {
       console.error('Failed to load alerts:', e)
     }
     setLoading(false)
+  }
+
+  const riskScoreMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const r of riskScores) {
+      const key = `${r.drawing_id}:${r.from_revision_number}->${r.to_revision_number}`
+      map[key] = r.score
+    }
+    return map
+  }, [riskScores])
+
+  function findRiskScore(alert: any): number | null {
+    const revMatch = alert.revision?.match(/Rev (\d+) → Rev (\d+)/)
+    if (!revMatch) return null
+    const key = `${alert.drawing_id}:${revMatch[1]}->${revMatch[2]}`
+    return riskScoreMap[key] ?? null
   }
 
   const handleDeleteAll = async () => {
@@ -119,9 +140,18 @@ export default function Alerts() {
                       <span className={`px-2.5 py-0.5 rounded-full font-[430] ${tradeColor}`}>
                         {cap(alert.trade)}
                       </span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-[430] ${sev.bg} ${sev.color}`}>
-                        {cap(alert.severity)}
-                      </span>
+                      {(() => {
+                        const rs = findRiskScore(alert)
+                        return rs !== null ? (
+                          <span className={`px-2.5 py-0.5 rounded-full font-[430] ${rs >= 65 ? 'bg-red-50 text-rust' : rs >= 35 ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+                            {rs}
+                          </span>
+                        ) : (
+                          <span className={`px-2.5 py-0.5 rounded-full font-[430] ${sev.bg} ${sev.color}`}>
+                            {cap(alert.severity)}
+                          </span>
+                        )
+                      })()}
                       {alert.project_name && (
                         <span className="text-graphite font-[450]">{alert.project_name}</span>
                       )}

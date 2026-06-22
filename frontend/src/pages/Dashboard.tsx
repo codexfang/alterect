@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
-import { Upload, GitCompare, TrendingUp, Shield, Activity } from 'lucide-react'
+import { Upload, GitCompare } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Tabs } from '@/components/ui/Tabs'
@@ -184,23 +184,23 @@ export default function Dashboard() {
 
   const changesByTrade = useMemo(() => {
     const map: Record<string, number> = {}
-    for (const a of alerts) {
+    for (const a of filteredAlerts) {
       const trade = a.trade || 'other'
       map[trade] = (map[trade] || 0) + (a.change_count || 1)
     }
     return Object.entries(map).sort(([, a], [, b]) => b - a)
-  }, [alerts])
+  }, [filteredAlerts])
 
   const maxTradeCount = changesByTrade.length ? Math.max(...changesByTrade.map(([, c]) => c)) : 1
 
   const sortedSheets = useMemo(() => {
     const map: Record<string, number> = {}
-    for (const a of alerts) {
+    for (const a of filteredAlerts) {
       const sheet = a.sheet_name || 'Unknown'
       map[sheet] = (map[sheet] || 0) + 1
     }
     return Object.entries(map).sort(([, a], [, b]) => b - a).slice(0, 5)
-  }, [alerts])
+  }, [filteredAlerts])
 
   const activityData = useMemo(() => {
     const now = new Date()
@@ -211,7 +211,7 @@ export default function Dashboard() {
       const iso = d.toISOString().split('T')[0]
       days.push({ date: iso, count: 0, label: formatLabel(iso) })
     }
-    for (const a of alerts) {
+    for (const a of filteredAlerts) {
       const day = a.created_at?.split('T')[0]
       if (day) {
         const entry = days.find((d) => d.date === day)
@@ -219,14 +219,10 @@ export default function Dashboard() {
       }
     }
     return days
-  }, [alerts])
+  }, [filteredAlerts])
 
   const maxActivity = Math.max(...activityData.map((d) => d.count), 1)
   const hasData = drawings.length > 0 || alerts.length > 0
-
-  const riskScoreHistory = useMemo(() => {
-    return riskScores.slice().reverse()
-  }, [riskScores])
 
   return (
     <div className="p-6 space-y-6 pb-16">
@@ -275,7 +271,6 @@ export default function Dashboard() {
             tabs={[
               { id: 'overview', label: 'Overview' },
               { id: 'changes', label: 'Changes' },
-              { id: 'risk', label: 'Risk Analysis' },
             ]}
             active={activeTab}
             onChange={setActiveTab}
@@ -457,8 +452,7 @@ export default function Dashboard() {
           {/* Full-width activity chart */}
           <AnimatedSection>
             <Card padding="md" hover>
-              <h3 className="text-body font-[450] text-ink mb-4 flex items-center gap-2">
-                <Activity size={16} className="text-graphite" />
+              <h3 className="text-body font-[450] text-ink mb-4">
                 Change Activity Timeline
               </h3>
               {activityData.every((d) => d.count === 0) ? (
@@ -571,149 +565,6 @@ export default function Dashboard() {
               </Card>
             </AnimatedSection>
           </div>
-        </div>
-      )}
-
-      {/* ════════════════════ RISK ANALYSIS TAB ════════════════════ */}
-      {activeTab === 'risk' && (
-        <div className="space-y-4">
-          {/* Latest Risk Score Hero */}
-          <AnimatedSection>
-            <Card padding="lg">
-              <div className="flex items-start gap-6">
-                <div className="relative w-32 h-32 shrink-0">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 128 128">
-                    <circle cx="64" cy="64" r="56" fill="none" stroke="#f0f0f0" strokeWidth="8" />
-                    <circle
-                      cx="64" cy="64" r="56"
-                      fill="none"
-                      stroke={latestRisk?.color || '#16A34A'}
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeDasharray={`${latestRiskScore !== null ? (latestRiskScore / 100) * 352 : 0} 352`}
-                      className="transition-all duration-1000"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center flex-col">
-                    <span className="font-serif text-[36px] text-ink leading-none">
-                      {latestRiskScore !== null ? latestRiskScore : '—'}
-                    </span>
-                    <span className="text-[11px] text-graphite mt-1 capitalize">{latestRiskLevel || 'no data'}</span>
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-body font-[450] text-ink mb-1">Overall Risk Assessment</h3>
-                  {latestRisk ? (
-                    <>
-                      <p className="text-[14px] text-graphite leading-relaxed">{latestRisk.recommendation}</p>
-                      <div className="flex items-center gap-4 mt-3">
-                        <span className="text-[12px] text-dove">
-                          {latestRisk.sheet_name} · Rev {latestRisk.from_revision_number} → {latestRisk.to_revision_number}
-                        </span>
-                        <span className="text-[12px] text-dove">
-                          {latestRisk.change_count} changes · {latestRisk.change_percentage}% of drawing
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-[14px] text-graphite">No risk scores yet. Compare two revisions to generate a risk assessment.</p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </AnimatedSection>
-
-          {/* Risk Factors Breakdown */}
-          {latestRisk?.factors?.length > 0 && (
-            <AnimatedSection delay={0.1}>
-              <Card padding="md" hover>
-                <h3 className="text-body font-[450] text-ink mb-4 flex items-center gap-2">
-                  <Shield size={16} className="text-graphite" />
-                  Risk Factors Breakdown
-                </h3>
-                <div className="grid grid-cols-2 gap-6">
-                  {latestRisk.factors.map((factor: any, i: number) => {
-                    const pct = (factor.score / factor.weight) * 100
-                    return (
-                      <div key={i}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[13px] text-ink font-[450]">{factor.name}</span>
-                          <span className="text-[12px] text-graphite tabular-nums">
-                            {factor.score}/{factor.weight}
-                          </span>
-                        </div>
-                        <div className="h-2 bg-dove/20 rounded-full overflow-hidden mb-1">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.6, delay: 0.1 + i * 0.1 }}
-                            className="h-full rounded-full transition-colors"
-                            style={{
-                              backgroundColor: pct > 66 ? '#DC2626' : pct > 33 ? '#EA580C' : '#16A34A',
-                            }}
-                          />
-                        </div>
-                        <p className="text-[11px] text-graphite">{factor.detail}</p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </Card>
-            </AnimatedSection>
-          )}
-
-          {/* Risk Score History */}
-          {riskScoreHistory.length > 1 && (
-            <AnimatedSection delay={0.15}>
-              <Card padding="md" hover>
-                <h3 className="text-body font-[450] text-ink mb-4 flex items-center gap-2">
-                  <TrendingUp size={16} className="text-graphite" />
-                  Risk Score History
-                </h3>
-                <div className="h-[140px] relative">
-                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-[20px]">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div key={i} className="border-b border-dove/5 w-full" />
-                    ))}
-                  </div>
-                  <div className="relative flex items-end gap-2 h-full pb-[20px]">
-                    {riskScoreHistory.slice(-10).map((r: any) => (
-                      <div key={r.id} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                        <span className="text-[10px] text-graphite tabular-nums">{r.score}</span>
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: `${(r.score / 100) * 100}px` }}
-                          transition={{ duration: 0.5 }}
-                          className="w-full rounded-t-md"
-                          style={{ backgroundColor: r.color || '#16A34A' }}
-                        />
-                        <span className="text-[9px] text-dove whitespace-nowrap">
-                          {new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            </AnimatedSection>
-          )}
-
-          {/* No data state */}
-          {!latestRisk && riskScores.length === 0 && (
-            <AnimatedSection delay={0.1}>
-              <Card padding="lg">
-                <div className="text-center py-8">
-                  <Shield size={40} className="text-dove mx-auto mb-3" />
-                  <p className="text-body text-graphite">No risk assessments yet</p>
-                  <p className="text-caption text-dove mt-1">Run a diff comparison to generate a risk score</p>
-                  <Button size="sm" className="mt-4" onClick={() => navigate('/diffs')}>
-                    <GitCompare size={14} className="mr-1.5" />
-                    Go to Diffs
-                  </Button>
-                </div>
-              </Card>
-            </AnimatedSection>
-          )}
         </div>
       )}
     </div>

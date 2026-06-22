@@ -281,21 +281,9 @@ export default function DiffView() {
             <Card padding="md">
               <p className="text-caption text-graphite font-[430]">Risk score</p>
               {riskResult ? (
-                <div className="flex items-center gap-2 mt-1">
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: riskResult.color }}
-                  />
-                  <p className="font-serif text-[32px] text-ink" style={{ color: riskResult.color }}>
-                    {riskResult.score}
-                  </p>
-                  <span
-                    className="font-serif text-[16px] mt-3"
-                    style={{ color: riskResult.color }}
-                  >
-                    /100
-                  </span>
-                </div>
+                <p className="font-serif text-[32px] text-ink mt-1" style={{ color: riskResult.color }}>
+                  {riskResult.score}
+                </p>
               ) : (
                 <p className="font-serif text-[32px] text-graphite/40 mt-1">—</p>
               )}
