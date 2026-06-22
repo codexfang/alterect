@@ -16,9 +16,10 @@ interface AlertFeedProps {
   alerts: AlertItem[]
   onMarkRead: (id: string) => void
   onMarkAllRead: () => void
+  onNavigateToAlerts?: () => void
 }
 
-export function AlertFeed({ alerts, onMarkRead, onMarkAllRead }: AlertFeedProps) {
+export function AlertFeed({ alerts, onMarkRead, onMarkAllRead, onNavigateToAlerts }: AlertFeedProps) {
   const unreadCount = alerts.filter((a) => !a.read).length
 
   return (
@@ -73,11 +74,25 @@ export function AlertFeed({ alerts, onMarkRead, onMarkAllRead }: AlertFeedProps)
                   <span className="text-[12px] text-graphite">{alert.time}</span>
                 </div>
               </div>
-              <ArrowUpRight size={14} className="text-graphite shrink-0 mt-1" />
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigateToAlerts?.() }}
+                className="shrink-0 mt-1 text-graphite hover:text-ink transition-colors"
+              >
+                <ArrowUpRight size={14} />
+              </button>
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
+
+      {alerts.length > 0 && onNavigateToAlerts && (
+        <button
+          onClick={onNavigateToAlerts}
+          className="w-full text-center text-[13px] text-graphite hover:text-ink py-3 border-t border-dove/10 transition-colors"
+        >
+          View all alerts
+        </button>
+      )}
 
       {alerts.length === 0 && (
         <div className="p-8 text-center">
