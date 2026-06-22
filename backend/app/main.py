@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import init_db
 from app.api.routes import router as api_router
 from app.api.oauth import router as oauth_router
+from app.api.diff import router as diff_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ app.add_middleware(
 # API Routes
 app.include_router(api_router, prefix="/api")
 app.include_router(oauth_router, prefix="/api")
+app.include_router(diff_router, prefix="/api")
 
 
 @app.get("/health")

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Upload, Search, FileText, Loader2, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Upload, Search, FileText, Loader2, ExternalLink, GitCompare } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,6 +8,7 @@ import { drawings, projects, revisions, storage } from '@/lib/db'
 import type { Drawing } from '@/lib/db'
 
 export default function Drawings() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [drawingList, setDrawingList] = useState<Drawing[]>([])
@@ -147,7 +149,7 @@ export default function Drawings() {
                 <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Discipline</th>
                 <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Revision</th>
                 <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Uploaded</th>
-                <th className="text-right text-caption text-graphite font-[430] px-5 py-3">Preview</th>
+                <th className="text-right text-caption text-graphite font-[430] px-5 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -179,17 +181,26 @@ export default function Drawings() {
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    {d.file_url && (
-                      <a
-                        href={d.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-body text-rust hover:text-rust/80 transition-colors"
+                    <div className="flex items-center justify-end gap-2">
+                      {d.file_url && (
+                        <a
+                          href={d.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-body text-rust hover:text-rust/80 transition-colors"
+                        >
+                          Open
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => navigate(`/diffs/${d.id}`)}
+                        className="inline-flex items-center gap-1 text-body text-graphite hover:text-ink transition-colors"
                       >
-                        Open
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
+                        <GitCompare size={14} />
+                        Compare
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
