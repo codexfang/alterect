@@ -1,29 +1,59 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/hooks/useAuth'
+import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Monitor } from 'lucide-react'
 import { ToastProvider } from '@/components/ui/Toast'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopNav } from '@/components/layout/TopNav'
-import { ChatInterface } from '@/components/chat/ChatInterface'
+import { AuthProvider, useAuth } from '@/hooks/useAuth'
 import Landing from '@/pages/Landing'
+import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import Drawings from '@/pages/Drawings'
 import DiffView from '@/pages/DiffView'
 import Alerts from '@/pages/Alerts'
 import Integrations from '@/pages/Integrations'
-import Login from '@/pages/Login'
+import { Sidebar } from '@/components/layout/Sidebar'
 import Legal from '@/pages/Legal'
 
-function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-screen bg-[#ffffff]">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopNav />
-        <main className="flex-1 overflow-y-auto bg-fog">
-          {children}
-        </main>
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return isMobile
+}
+
+function DesktopOnly({ children }: { children: React.ReactNode }) {
+  const isMobile = useIsMobile()
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-fog p-6">
+        <div className="bg-white rounded-[24px] shadow-subtle p-8 max-w-sm text-center">
+          <div className="w-14 h-14 bg-fog rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Monitor size={24} className="text-graphite" />
+          </div>
+          <h2 className="text-subheading text-ink mb-2">Desktop only</h2>
+          <p className="text-body text-graphite leading-relaxed">
+            Alterect's dashboard is designed for desktop. Please open this page on a computer.
+          </p>
+        </div>
       </div>
-      <ChatInterface />
+    )
+  }
+  return <>{children}</>
+}
+
+function AppLayout({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  const showSidebar = !['/login', '/signup', '/privacy', '/terms', '/cookies', '/developer'].includes(location.pathname)
+
+  if (!showSidebar) return <>{children}</>
+  return (
+    <div className="flex min-h-screen bg-fog">
+      <Sidebar />
+      <main className="flex-1 ml-0 overflow-auto">
+        {children}
+      </main>
     </div>
   )
 }
@@ -44,7 +74,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  return <AppLayout>{children}</AppLayout>
+  return <DesktopOnly><AppLayout>{children}</AppLayout></DesktopOnly>
 }
 
 export default function App() {
