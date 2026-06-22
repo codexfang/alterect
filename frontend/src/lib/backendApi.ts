@@ -137,6 +137,39 @@ export const backendApi = {
     return res.json() as Promise<{ status: string }>
   },
 
+  // ─── Risk Scoring ───
+
+  async scoreRisk(data: {
+    drawing_id: string
+    user_id: string
+    sheet_name: string
+    project_id: string
+    project_name: string
+    discipline: string
+    from_revision_number: number
+    to_revision_number: number
+    change_count: number
+    change_percentage: number
+    regions: { change_type: string; area_percentage: number }[]
+  }) {
+    const res = await fetch(`${API_BASE}/api/risk/score`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Risk scoring failed (${res.status})`)
+    }
+    return res.json() as Promise<{
+      score: number
+      level: string
+      color: string
+      factors: { name: string; score: number; weight: number; detail: string }[]
+      recommendation: string
+    }>
+  },
+
   async unreadAlertCount(userId: string) {
     const res = await fetch(`${API_BASE}/api/alerts-proxy/unread-count?user_id=${encodeURIComponent(userId)}`)
     if (!res.ok) return { count: 0 }

@@ -38,6 +38,13 @@ export default function DiffView() {
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
   const [error, setError] = useState('')
   const [alertGenerated, setAlertGenerated] = useState(false)
+  const [riskResult, setRiskResult] = useState<{
+    score: number
+    level: string
+    color: string
+    factors: { name: string; score: number; weight: number; detail: string }[]
+    recommendation: string
+  } | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setInitialLoading(false), 400)
@@ -90,7 +97,7 @@ export default function DiffView() {
       setDiffResult(data)
       setAlertGenerated(false)
 
-      // Auto-generate alerts from this comparison
+      // Auto-generate alerts + risk score from this comparison
       if (user && drawing) {
         try {
           const projectName = drawing.project_id
@@ -99,6 +106,8 @@ export default function DiffView() {
                 return p?.name || drawing.sheet_name || 'Untitled'
               }).catch(() => drawing.sheet_name || 'Untitled')
             : drawing.sheet_name || 'Untitled'
+
+          // Generate alerts
           await backendApi.generateAlerts({
             user_id: user.id,
             drawing_id: drawing.id,
@@ -112,8 +121,27 @@ export default function DiffView() {
             change_percentage: data.change_percentage,
           })
           setAlertGenerated(true)
+
+          // Compute risk score
+          const risk = await backendApi.scoreRisk({
+            drawing_id: drawing.id,
+            user_id: user.id,
+            sheet_name: drawing.sheet_name || 'Untitled',
+            project_id: drawing.project_id || '',
+            project_name: projectName,
+            discipline: (drawing as any).discipline || '',
+            from_revision_number: prev.revision_number,
+            to_revision_number: curr.revision_number,
+            change_count: data.change_count,
+            change_percentage: data.change_percentage,
+            regions: data.regions.map((r) => ({
+              change_type: r.change_type,
+              area_percentage: r.area_percentage,
+            })),
+          })
+          setRiskResult(risk)
         } catch (alertErr) {
-          console.warn('Alert generation failed (non-fatal):', alertErr)
+          console.warn('Alert/risk generation failed (non-fatal):', alertErr)
         }
       }
     } catch (e: any) {
@@ -251,10 +279,26 @@ export default function DiffView() {
               <p className="font-serif text-[32px] text-ink mt-1">{diffResult.change_percentage}%</p>
             </Card>
             <Card padding="md">
-              <p className="text-caption text-graphite font-[430]">Severity</p>
-              <p className={`font-serif text-[32px] mt-1 ${diffResult.change_percentage > 10 ? 'text-rust' : diffResult.change_percentage > 3 ? 'text-orange-600' : 'text-green-600'}`}>
-                {diffResult.change_percentage > 10 ? 'High' : diffResult.change_percentage > 3 ? 'Medium' : 'Low'}
-              </p>
+              <p className="text-caption text-graphite font-[430]">Risk score</p>
+              {riskResult ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: riskResult.color }}
+                  />
+                  <p className="font-serif text-[32px] text-ink" style={{ color: riskResult.color }}>
+                    {riskResult.score}
+                  </p>
+                  <span
+                    className="font-serif text-[16px] mt-3"
+                    style={{ color: riskResult.color }}
+                  >
+                    /100
+                  </span>
+                </div>
+              ) : (
+                <p className="font-serif text-[32px] text-graphite/40 mt-1">—</p>
+              )}
             </Card>
           </div>
 
@@ -301,9 +345,43 @@ export default function DiffView() {
             </Card>
           )}
 
+          {/* Risk breakdown */}
+          {riskResult && (
+            <Card padding="md">
+              <h3 className="text-subheading text-ink mb-3">Risk breakdown</h3>
+              <div className="space-y-2">
+                {riskResult.factors.map((f, i) => {
+                  const pct = f.weight > 0 ? Math.round((f.score / f.weight) * 100) : 0
+                  const barColor = pct >= 70 ? '#DC2626' : pct >= 40 ? '#EA580C' : '#16A34A'
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between text-body text-graphite mb-1">
+                        <span className="font-[450]">{f.name}</span>
+                        <span>{f.score}/{f.weight}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-fog rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${pct}%`, backgroundColor: barColor }}
+                        />
+                      </div>
+                      <p className="text-caption text-graphite mt-0.5">{f.detail}</p>
+                    </div>
+                  )
+                })}
+              </div>
+              {riskResult.recommendation && (
+                <div className="mt-3 pt-3 border-t border-dove/10">
+                  <p className="text-caption text-graphite font-[430] mb-1">Recommendation</p>
+                  <p className="text-body text-ink">{riskResult.recommendation}</p>
+                </div>
+              )}
+            </Card>
+          )}
+
           {/* Alert generated indicator */}
           {alertGenerated && (
-            <Card padding="md" variant="warm">
+            <Card padding="md">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-green-700">
                   <Bell size={16} />
