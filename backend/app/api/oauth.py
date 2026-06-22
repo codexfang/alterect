@@ -40,10 +40,6 @@ OAUTH_PROVIDERS = {
     },
 }
 
-supabase: Client | None = None
-if settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY:
-    supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
-
 
 def generate_state() -> str:
     return secrets.token_urlsafe(32)
@@ -191,6 +187,8 @@ async def oauth_callback(
 
 @router.get("/status")
 async def oauth_status(uid: str = Query(..., description="Supabase user ID")):
+    if not SUPABASE_REST_URL:
+        return {"connected": []}
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
@@ -209,6 +207,8 @@ async def oauth_status(uid: str = Query(..., description="Supabase user ID")):
 async def oauth_disconnect(provider: str, uid: str = Query(...)):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+    if not SUPABASE_REST_URL:
+        return {"status": "disconnected", "provider": provider}
     try:
         async with httpx.AsyncClient() as client:
             await client.patch(
