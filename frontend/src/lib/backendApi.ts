@@ -1,0 +1,39 @@
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
+
+export const backendApi = {
+  async uploadDrawing(file: File, userId: string) {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('user_id', userId)
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/upload`, { method: 'POST', body: form })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Upload failed (${res.status})`)
+    }
+    return res.json() as Promise<{ drawing: any; revision: any; file_url: string }>
+  },
+
+  async listDrawings(userId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/list?user_id=${encodeURIComponent(userId)}`)
+    if (!res.ok) return []
+    return res.json() as Promise<any[]>
+  },
+
+  async getDrawing(drawingId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/drawing?drawing_id=${encodeURIComponent(drawingId)}`)
+    if (!res.ok) return null
+    return res.json() as Promise<any>
+  },
+
+  async listRevisions(drawingId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/revisions?drawing_id=${encodeURIComponent(drawingId)}`)
+    if (!res.ok) return []
+    return res.json() as Promise<any[]>
+  },
+
+  async getOrCreateDefaultProject(userId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/projects/default?user_id=${encodeURIComponent(userId)}`)
+    if (!res.ok) return null
+    return res.json() as Promise<any>
+  },
+}

@@ -14,6 +14,7 @@ from app.core.database import init_db
 from app.api.routes import router as api_router
 from app.api.oauth import router as oauth_router
 from app.api.diff import router as diff_router
+from app.api.drawings_proxy import router as drawings_proxy_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 app.include_router(oauth_router, prefix="/api")
 app.include_router(diff_router, prefix="/api")
+app.include_router(drawings_proxy_router, prefix="/api")
 
 
 @app.get("/health")

@@ -4,7 +4,8 @@ import { Upload, Search, FileText, Loader2, ExternalLink, GitCompare } from 'luc
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
-import { drawings, projects, revisions, storage } from '@/lib/db'
+import { storage } from '@/lib/db'
+import { backendApi } from '@/lib/backendApi'
 import type { Drawing } from '@/lib/db'
 
 export default function Drawings() {
@@ -18,15 +19,16 @@ export default function Drawings() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    loadDrawings()
-  }, [])
+    if (user) loadDrawings()
+  }, [user])
 
   const loadDrawings = async () => {
     setLoading(true)
     try {
-      await storage.ensureBucket()
-      const list = await drawings.list()
-      setDrawingList(list)
+      if (user) {
+        const list = await backendApi.listDrawings(user.id)
+        setDrawingList(list)
+      }
     } catch (e) {
       console.error('Failed to load drawings:', e)
     }
@@ -41,26 +43,7 @@ export default function Drawings() {
     setUploadError('')
 
     try {
-      const { url } = await storage.uploadDrawing(file, user.id)
-
-      const project = await projects.getOrCreateDefault()
-      if (!project) throw new Error('Failed to create project')
-
-      const name = file.name.replace(/\.[^/.]+$/, '')
-      const drawing = await drawings.create({
-        project_id: project.id,
-        sheet_name: name,
-        file_url: url,
-      })
-      if (!drawing) throw new Error('Failed to create drawing record')
-
-      await revisions.create({
-        drawing_id: drawing.id,
-        revision_number: 0,
-        file_url: url,
-        notes: 'Initial upload',
-      })
-
+      await backendApi.uploadDrawing(file, user.id)
       await loadDrawings()
     } catch (e: any) {
       setUploadError(e.message)

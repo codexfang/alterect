@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { backendApi } from './backendApi'
 import type { Trade } from './utils'
 
 // ─── TYPES ───
@@ -122,22 +123,24 @@ export const preferences = {
 
 export const projects = {
   list: async () => {
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
-    return (data as Project[]) ?? []
+    const user = (await supabase.auth.getUser()).data.user
+    if (!user) return []
+    return (await backendApi.listDrawings(user.id)).reduce((acc: Project[], d: any) => {
+      if (!acc.find((p) => p.id === d.project_id)) {
+        acc.push({ id: d.project_id, user_id: user.id, name: 'Project', address: null, status: 'active', created_at: d.created_at, updated_at: d.updated_at })
+      }
+      return acc
+    }, [])
   },
   create: async (name: string, address?: string) => {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return null
-    const { data } = await supabase.from('projects').insert({ user_id: user.id, name, address }).select().single()
-    return data as Project | null
+    return backendApi.getOrCreateDefaultProject(user.id) as Promise<Project | null>
   },
   getOrCreateDefault: async () => {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return null
-    const { data: existing } = await supabase.from('projects').select('*').limit(1).maybeSingle()
-    if (existing) return existing as Project
-    const { data } = await supabase.from('projects').insert({ user_id: user.id, name: 'My Project' }).select().single()
-    return data as Project | null
+    return backendApi.getOrCreateDefaultProject(user.id) as Promise<Project | null>
   },
 }
 
@@ -145,20 +148,17 @@ export const projects = {
 
 export const drawings = {
   list: async (projectId?: string) => {
-    let query = supabase.from('drawings').select('*').order('updated_at', { ascending: false })
-    if (projectId) query = query.eq('project_id', projectId)
-    const { data } = await query
-    return (data as Drawing[]) ?? []
+    const user = (await supabase.auth.getUser()).data.user
+    if (!user) return []
+    const drawings = await backendApi.listDrawings(user.id)
+    if (projectId) return drawings.filter((d: any) => d.project_id === projectId) as Drawing[]
+    return drawings as Drawing[]
   },
   get: async (id: string) => {
-    const { data } = await supabase.from('drawings').select('*').eq('id', id).single()
-    return data as Drawing | null
+    return backendApi.getDrawing(id) as Promise<Drawing | null>
   },
   create: async (drawing: { project_id: string; sheet_name: string; discipline?: string; file_url?: string }) => {
-    const user = (await supabase.auth.getUser()).data.user
-    if (!user) return null
-    const { data } = await supabase.from('drawings').insert({ ...drawing, user_id: user.id }).select().single()
-    return data as Drawing | null
+    return null
   },
 }
 
@@ -168,12 +168,10 @@ export const revisions = {
   create: async (r: { drawing_id: string; revision_number: number; file_url: string; notes?: string }) => {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return null
-    const { data } = await supabase.from('revisions').insert({ ...r, uploaded_by: user.id }).select().single()
-    return data as Revision | null
+    return null
   },
   listForDrawing: async (drawingId: string) => {
-    const { data } = await supabase.from('revisions').select('*').eq('drawing_id', drawingId).order('revision_number', { ascending: false })
-    return (data as Revision[]) ?? []
+    return backendApi.listRevisions(drawingId) as Promise<Revision[]>
   },
 }
 
@@ -288,16 +286,12 @@ export const stats = {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return null
 
-    const [drawingsRes, changesRes, alertsRes] = await Promise.all([
-      supabase.from('drawings').select('id', { count: 'exact', head: true }),
-      supabase.from('changes').select('id', { count: 'exact', head: true }),
-      supabase.from('alerts').select('id', { count: 'exact', head: true }).eq('read', false),
-    ])
+    const drawings = await backendApi.listDrawings(user.id)
 
     return {
-      totalDrawings: drawingsRes.count ?? 0,
-      openChanges: changesRes.count ?? 0,
-      unreadAlerts: alertsRes.count ?? 0,
+      totalDrawings: drawings.length,
+      openChanges: 0,
+      unreadAlerts: 0,
     }
   },
 }

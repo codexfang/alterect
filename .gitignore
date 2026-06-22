@@ -10,6 +10,9 @@ backend/venv/
 # Build output
 frontend/dist/
 
+# TypeScript build info
+*.tsbuildinfo
+
 # OS files
 .DS_Store
 Thumbs.db
