@@ -550,7 +550,7 @@ export default function Landing() {
 
       {/* ─── FOOTER ─── */}
       <footer className="border-t border-dove/10 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-20">
+        <div className="max-w-7xl mx-auto px-6 py-0 md:py-20">
           <div className="hidden md:grid grid-cols-2 md:grid-cols-6 gap-10">
             <div className="md:col-span-2">
               <span className="font-serif text-[22px] text-ink tracking-[-0.2px]">Alterect</span>
