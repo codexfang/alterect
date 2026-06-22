@@ -91,7 +91,7 @@ async def generate_alerts(req: AlertGenerateRequest):
     severity = _compute_severity(req.change_percentage, req.change_count)
 
     revision_str = f"Rev {req.from_revision_number} → Rev {req.to_revision_number}"
-    title = f"{req.change_count} change{'s' if req.change_count != 1 else ''} detected on {req.sheet_name}"
+    title = f"Changes detected on {req.project_name}"
     description = (
         f"{req.change_count} change{'s' if req.change_count != 1 else ''} ({req.change_percentage}% of drawing) "
         f"detected between Rev {req.from_revision_number} and Rev {req.to_revision_number} "

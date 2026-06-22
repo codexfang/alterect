@@ -104,7 +104,6 @@ export default function Alerts() {
               <Card
                 key={alert.id}
                 padding="md"
-                variant={alert.read ? 'default' : 'warm'}
                 className={alert.read ? 'opacity-70' : ''}
               >
                 <div className="flex items-start gap-4">
@@ -112,11 +111,8 @@ export default function Alerts() {
                     <SevIcon size={18} className={sev.color} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-1">
                       <h3 className="text-subheading text-ink">{alert.title}</h3>
-                      {!alert.read && (
-                        <span className="w-2 h-2 rounded-full bg-rust shrink-0" />
-                      )}
                     </div>
                     <p className="text-body text-graphite mb-2">{alert.description}</p>
                     <div className="flex items-center gap-3 flex-wrap text-caption">
