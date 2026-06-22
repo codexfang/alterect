@@ -170,40 +170,42 @@ export default function Legal() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-6xl mx-auto px-6 py-16">
-        <div className="flex gap-16">
-          <aside className="w-64 shrink-0">
-            <div className="sticky top-24">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-16">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-16">
+          <aside className="w-full md:w-64 md:shrink-0">
+            <div className="md:sticky md:top-24">
               <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-[14px] text-graphite hover:text-ink hover:bg-fog px-2 -mx-2 py-1 rounded-lg transition-all duration-200 mb-6"
+                className="flex items-center gap-2 text-[14px] text-graphite hover:text-ink hover:bg-fog px-2 -mx-2 py-1 rounded-lg transition-all duration-200 mb-4 md:mb-6"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
-              <h2 className="text-[13px] font-[450] text-ink uppercase tracking-wider mb-3">On this page</h2>
-              <div className="border-l border-dove/30 pl-4 space-y-2.5">
-                {info.sections.map((section) => (
-                  <a
-                    key={section.id}
-                    href={`#${section.id}`}
-                    className="block text-[13px] text-graphite hover:text-ink transition-colors leading-relaxed"
-                  >
-                    {section.h}
-                  </a>
-                ))}
+              <div className="overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+                <h2 className="text-[13px] font-[450] text-ink uppercase tracking-wider mb-2 md:mb-3">On this page</h2>
+                <div className="flex md:flex-col gap-1.5 border-b md:border-b-0 md:border-l border-dove/30 pb-2 md:pb-0 md:pl-4 overflow-x-auto">
+                  {info.sections.map((section) => (
+                    <a
+                      key={section.id}
+                      href={`#${section.id}`}
+                      className="whitespace-nowrap md:whitespace-normal text-[13px] text-graphite hover:text-ink transition-colors leading-relaxed md:block shrink-0"
+                    >
+                      {section.h}
+                    </a>
+                  ))}
+                </div>
               </div>
             </div>
           </aside>
 
           <div className="flex-1 min-w-0">
-            <h1 className="font-serif text-heading text-ink">{info.title}</h1>
-            <p className="text-caption text-graphite mt-2 mb-14">Last updated: {info.updated}</p>
-            <div className="space-y-12">
+            <h1 className="font-serif text-heading-md md:text-heading text-ink">{info.title}</h1>
+            <p className="text-caption text-graphite mt-2 mb-8 md:mb-14">Last updated: {info.updated}</p>
+            <div className="space-y-8 md:space-y-12">
               {info.sections.map((section) => (
                 <div key={section.id} id={section.id} className="scroll-mt-24">
                   <h2 className="text-subheading text-ink mb-3 leading-snug">{section.h}</h2>
-                  <p className="text-body text-graphite leading-[1.75]">{section.p}</p>
+                  <p className="text-[14px] md:text-body text-graphite leading-[1.7] md:leading-[1.75]">{section.p}</p>
                 </div>
               ))}
             </div>

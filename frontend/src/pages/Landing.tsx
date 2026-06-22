@@ -239,28 +239,28 @@ export default function Landing() {
 
               {/* Demo content — diff viewer simulation */}
               <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-apricot-wash/50 rounded-xl flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div className="w-8 h-8 bg-apricot-wash/50 rounded-xl flex items-center justify-center shrink-0">
                       <FileText size={15} className="text-rust" />
                     </div>
-                    <div>
-                      <span className="text-sm font-[450] text-ink">A-101 Floor Plan</span>
-                      <span className="text-[12px] text-graphite ml-2">Rev 3 vs Rev 4</span>
+                    <div className="min-w-0">
+                      <span className="text-sm font-[450] text-ink whitespace-nowrap">A-101 Floor Plan</span>
+                      <span className="text-[12px] text-graphite ml-1.5">Rev 3 vs Rev 4</span>
                     </div>
-                    <span className="px-2.5 py-0.5 text-[11px] bg-rust/10 text-rust rounded-full font-[430]">6 changes</span>
+                    <span className="px-2.5 py-0.5 text-[11px] bg-rust/10 text-rust rounded-full font-[430] shrink-0">6 changes</span>
                   </div>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 shrink-0">
                     <span className="px-3 py-1 text-[11px] bg-rust/10 text-rust rounded-lg font-[430]">Side by side</span>
                     <span className="px-3 py-1 text-[11px] text-graphite rounded-lg">Overlay</span>
                   </div>
                 </div>
 
                 {/* Two-column diff viewer */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Old drawing */}
                   <div className="bg-fog rounded-xl p-4 border border-dove/10">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
                       <span className="text-[12px] text-graphite font-[430]">Previous (Rev 3)</span>
                       <span className="text-[11px] px-2 py-0.5 bg-red-50 text-red-600 rounded-full font-[430]">3 removed</span>
                     </div>
@@ -303,7 +303,7 @@ export default function Landing() {
 
                   {/* New drawing */}
                   <div className="bg-fog rounded-xl p-4 border border-dove/10">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
                       <span className="text-[12px] text-graphite font-[430]">Current (Rev 4)</span>
                       <span className="text-[11px] px-2 py-0.5 bg-green-50 text-green-600 rounded-full font-[430]">3 added</span>
                     </div>
@@ -410,8 +410,8 @@ export default function Landing() {
               const right = features[row * 2 + 1]
               return (
                 <motion.div key={row} variants={scaleIn}>
-                  <div className="flex gap-6">
-                    <div className={`rounded-[24px] shadow-subtle bg-white group hover:shadow-[rgba(4,23,43,0.08)_0px_0px_0px_1px,rgba(0,0,0,0.15)_0px_20px_25px_-5px,rgba(0,0,0,0.12)_0px_8px_10px_-6px] transition-all duration-300 ${leftBig ? 'w-[62%]' : 'w-[38%]'}`}>
+                  <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                    <div className={`rounded-[24px] shadow-subtle bg-white group hover:shadow-[rgba(4,23,43,0.08)_0px_0px_0px_1px,rgba(0,0,0,0.15)_0px_20px_25px_-5px,rgba(0,0,0,0.12)_0px_8px_10px_-6px] transition-all duration-300 w-full ${leftBig ? 'md:w-[62%]' : 'md:w-[38%]'}`}>
                       <div className="relative overflow-hidden rounded-[24px]">
                         {leftBig && (
                           <div
@@ -423,7 +423,7 @@ export default function Landing() {
                             }}
                           />
                         )}
-                        <div className="relative z-10 p-6">
+                        <div className="relative z-10 p-5 md:p-6">
                           <div className="w-10 h-10 bg-fog rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                             <left.icon size={20} strokeWidth={1.5} className="text-ink" />
                           </div>
@@ -432,7 +432,7 @@ export default function Landing() {
                         </div>
                       </div>
                     </div>
-                    <div className={`rounded-[24px] shadow-subtle bg-white group hover:shadow-[rgba(4,23,43,0.08)_0px_0px_0px_1px,rgba(0,0,0,0.15)_0px_20px_25px_-5px,rgba(0,0,0,0.12)_0px_8px_10px_-6px] transition-all duration-300 ${!leftBig ? 'w-[62%]' : 'w-[38%]'}`}>
+                    <div className={`rounded-[24px] shadow-subtle bg-white group hover:shadow-[rgba(4,23,43,0.08)_0px_0px_0px_1px,rgba(0,0,0,0.15)_0px_20px_25px_-5px,rgba(0,0,0,0.12)_0px_8px_10px_-6px] transition-all duration-300 w-full ${!leftBig ? 'md:w-[62%]' : 'md:w-[38%]'}`}>
                       <div className="relative overflow-hidden rounded-[24px]">
                         {!leftBig && (
                           <div
@@ -444,7 +444,7 @@ export default function Landing() {
                             }}
                           />
                         )}
-                        <div className="relative z-10 p-6">
+                        <div className="relative z-10 p-5 md:p-6">
                           <div className="w-10 h-10 bg-fog rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
                             <right.icon size={20} strokeWidth={1.5} className="text-ink" />
                           </div>
@@ -551,7 +551,7 @@ export default function Landing() {
       {/* ─── FOOTER ─── */}
       <footer className="border-t border-dove/10 bg-white">
         <div className="max-w-7xl mx-auto px-6 py-20">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-10">
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-6 gap-10">
             <div className="md:col-span-2">
               <span className="font-serif text-[22px] text-ink tracking-[-0.2px]">Alterect</span>
               <p className="mt-3 text-[14px] text-graphite leading-relaxed max-w-xs">
