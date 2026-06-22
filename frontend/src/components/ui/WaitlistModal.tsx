@@ -105,6 +105,16 @@ export default function WaitlistModal({ open, onClose }: Props) {
                     />
                   </div>
                   <div>
+                    <label className="text-caption text-graphite font-[430] block mb-1">Company / School</label>
+                    <input
+                      type="text"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      placeholder="Optional"
+                      className="w-full px-4 py-3 bg-white rounded-[16px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 border border-dove/20"
+                    />
+                  </div>
+                  <div>
                     <label className="text-caption text-graphite font-[430] block mb-1">Email *</label>
                     <input
                       type="email"
@@ -112,16 +122,6 @@ export default function WaitlistModal({ open, onClose }: Props) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@company.com"
-                      className="w-full px-4 py-3 bg-white rounded-[16px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 border border-dove/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-caption text-graphite font-[430] block mb-1">Company / School</label>
-                    <input
-                      type="text"
-                      value={company}
-                      onChange={(e) => setCompany(e.target.value)}
-                      placeholder="Optional"
                       className="w-full px-4 py-3 bg-white rounded-[16px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 border border-dove/20"
                     />
                   </div>

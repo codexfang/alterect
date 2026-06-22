@@ -16,3 +16,6 @@ create policy "Anyone can insert into waitlist"
 create policy "Only authenticated users can view waitlist"
   on waitlist for select
   using (auth.role() = 'authenticated');
+
+grant usage on schema public to anon;
+grant insert on public.waitlist to anon;
