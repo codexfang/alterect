@@ -66,6 +66,7 @@ export default function App() {
               <Route path="/pricing" element={<Landing />} />
               <Route path="/resources" element={<Landing />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/developer" element={<Navigate to="/login" replace />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/privacy" element={<Legal />} />
               <Route path="/terms" element={<Legal />} />
