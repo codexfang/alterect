@@ -53,6 +53,7 @@ async def upload_drawing(
     file: UploadFile = File(...),
     user_id: str = Form(...),
     discipline: str = Form(""),
+    project_id: str = Form(""),
 ):
     if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
         raise HTTPException(status_code=500, detail="Supabase not configured")
@@ -78,22 +79,38 @@ async def upload_drawing(
 
         file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/drawings/{file_path}"
 
-        # 2. Check if user already has a drawing (single-drawing model)
-        existing_drawings = []
-        try:
-            all_resp = await client.get(
-                f"{_SUPABASE_REST_URL}/drawings",
+        # 2. Determine project: use given project_id or first project or create default
+        if project_id:
+            target_project_id = project_id
+        else:
+            proj_resp = await client.get(
+                f"{_SUPABASE_REST_URL}/projects",
                 headers=headers,
                 params={"user_id": f"eq.{user_id}", "select": "*", "limit": "1"},
             )
-            if all_resp.status_code == 200:
-                existing_drawings = all_resp.json()
-        except Exception:
-            pass
+            existing_projects = proj_resp.json() if proj_resp.status_code == 200 else []
+            if existing_projects:
+                target_project_id = existing_projects[0]["id"]
+            else:
+                create_resp = await client.post(
+                    f"{_SUPABASE_REST_URL}/projects",
+                    headers={**headers, "Prefer": "return=representation"},
+                    json={"user_id": user_id, "name": "My Project"},
+                )
+                if create_resp.status_code not in (200, 201):
+                    raise HTTPException(status_code=500, detail=f"Project creation failed: {create_resp.text}")
+                target_project_id = create_resp.json()[0]["id"]
 
-        if existing_drawings:
-            # New revision for same drawing — every upload increments the rev
-            drawing = existing_drawings[0]
+        # 3. Find or create drawing for this project
+        drawing_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=headers,
+            params={"project_id": f"eq.{target_project_id}", "user_id": f"eq.{user_id}", "select": "*", "limit": "1"},
+        )
+        existing = drawing_resp.json() if drawing_resp.status_code == 200 else []
+
+        if existing:
+            drawing = existing[0]
             drawing_id = drawing["id"]
 
             rev_resp = await client.get(
@@ -116,10 +133,7 @@ async def upload_drawing(
                 },
             )
             if revision_resp.status_code not in (200, 201):
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Revision creation failed (status {revision_resp.status_code}): {revision_resp.text}",
-                )
+                raise HTTPException(status_code=500, detail=f"Revision creation failed: {revision_resp.text}")
 
             revision = revision_resp.json()[0]
 
@@ -139,37 +153,15 @@ async def upload_drawing(
                 "drawing": {**drawing, "current_revision": next_rev, "file_url": file_url, "sheet_name": sheet_name},
                 "revision": revision,
                 "file_url": file_url,
+                "project_id": target_project_id,
                 "is_new_revision": True,
             }
 
-        # 3. Get or create default project
-        project_resp = await client.get(
-            f"{_SUPABASE_REST_URL}/projects",
-            headers=headers,
-            params={"user_id": f"eq.{user_id}", "select": "*", "limit": "1"},
-        )
-        projects = project_resp.json() if project_resp.status_code == 200 else []
-
-        if projects:
-            project_id = projects[0]["id"]
-        else:
-            create_resp = await client.post(
-                f"{_SUPABASE_REST_URL}/projects",
-                headers={**headers, "Prefer": "return=representation"},
-                json={"user_id": user_id, "name": "My Project"},
-            )
-            if create_resp.status_code not in (200, 201):
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Project creation failed (status {create_resp.status_code}): {create_resp.text}",
-                )
-            project_id = create_resp.json()[0]["id"]
-
-        # 4. Auto-detect discipline if not set
+        # 4. Create new drawing
         final_discipline = discipline or auto_detect_discipline(file.filename or sheet_name)
 
         drawing_body = {
-            "project_id": project_id,
+            "project_id": target_project_id,
             "user_id": user_id,
             "sheet_name": sheet_name,
             "file_url": file_url,
@@ -183,15 +175,11 @@ async def upload_drawing(
             json=drawing_body,
         )
         if drawing_resp.status_code not in (200, 201):
-            raise HTTPException(
-                status_code=500,
-                detail=f"Drawing creation failed (status {drawing_resp.status_code}): {drawing_resp.text}",
-            )
+            raise HTTPException(status_code=500, detail=f"Drawing creation failed: {drawing_resp.text}")
 
         drawing = drawing_resp.json()[0]
         drawing_id = drawing["id"]
 
-        # 5. Create initial revision (revision 1)
         revision_resp = await client.post(
             f"{_SUPABASE_REST_URL}/revisions",
             headers={**headers, "Prefer": "return=representation"},
@@ -204,10 +192,7 @@ async def upload_drawing(
             },
         )
         if revision_resp.status_code not in (200, 201):
-            raise HTTPException(
-                status_code=500,
-                detail=f"Revision creation failed (status {revision_resp.status_code}): {revision_resp.text}",
-            )
+            raise HTTPException(status_code=500, detail=f"Revision creation failed: {revision_resp.text}")
 
         revision = revision_resp.json()[0]
 
@@ -215,6 +200,7 @@ async def upload_drawing(
             "drawing": drawing,
             "revision": revision,
             "file_url": file_url,
+            "project_id": target_project_id,
             "is_new_revision": False,
         }
 
@@ -376,6 +362,91 @@ async def delete_drawing(drawing_id: str = Query(...), user_id: str = Query(...)
             raise HTTPException(status_code=500, detail=f"Failed to delete drawing: {del_resp.text}")
 
         return {"status": "deleted", "drawing_id": drawing_id}
+
+
+# ─── PROJECTS (folders) ───
+
+@router.get("/projects/list")
+async def list_projects(user_id: str = Query(...)):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{_SUPABASE_REST_URL}/projects",
+            headers=_headers(),
+            params={"user_id": f"eq.{user_id}", "select": "*", "order": "created_at.desc"},
+        )
+        if resp.status_code != 200:
+            return []
+        return resp.json()
+
+
+@router.post("/projects/create")
+async def create_project(user_id: str = Form(...), name: str = Form(...)):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{_SUPABASE_REST_URL}/projects",
+            headers={**_headers(), "Prefer": "return=representation"},
+            json={"user_id": user_id, "name": name},
+        )
+        if resp.status_code not in (200, 201):
+            raise HTTPException(status_code=500, detail=f"Failed to create project: {resp.text}")
+        return resp.json()[0]
+
+
+@router.delete("/projects/delete")
+async def delete_project(project_id: str = Query(...), user_id: str = Query(...)):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = _headers()
+    async with httpx.AsyncClient() as client:
+        # Find the drawing for this project so we can clean storage
+        draw_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=headers,
+            params={"project_id": f"eq.{project_id}", "select": "*", "limit": "1"},
+        )
+        drawings = draw_resp.json() if draw_resp.status_code == 200 else []
+
+        for drawing in drawings:
+            rev_resp = await client.get(
+                f"{_SUPABASE_REST_URL}/revisions",
+                headers=headers,
+                params={"drawing_id": f"eq.{drawing['id']}", "select": "file_url"},
+            )
+            urls = [r["file_url"] for r in (rev_resp.json() if rev_resp.status_code == 200 else [])]
+            if drawing.get("file_url"):
+                urls.append(drawing["file_url"])
+            paths = []
+            for url in urls:
+                p = _extract_storage_path(url)
+                if p:
+                    paths.append(p)
+            if paths:
+                try:
+                    await client.post(
+                        f"{_SUPABASE_STORAGE_URL}/object/drawings/delete",
+                        headers={**_headers(), "Content-Type": "application/json"},
+                        json={"prefixes": list(set(paths))},
+                    )
+                except Exception as e:
+                    logger.warning(f"Storage cleanup failed: {e}")
+
+        # Delete project (cascades to drawings + revisions)
+        del_resp = await client.delete(
+            f"{_SUPABASE_REST_URL}/projects",
+            headers=headers,
+            params={"id": f"eq.{project_id}"},
+        )
+        if del_resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail=f"Failed to delete project: {del_resp.text}")
+
+        return {"status": "deleted", "project_id": project_id}
 
 
 @router.get("/projects/default")

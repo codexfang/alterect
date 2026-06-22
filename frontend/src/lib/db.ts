@@ -125,22 +125,19 @@ export const projects = {
   list: async () => {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return []
-    return (await backendApi.listDrawings(user.id)).reduce((acc: Project[], d: any) => {
-      if (!acc.find((p) => p.id === d.project_id)) {
-        acc.push({ id: d.project_id, user_id: user.id, name: 'Project', address: null, status: 'active', created_at: d.created_at, updated_at: d.updated_at })
-      }
-      return acc
-    }, [])
+    return backendApi.listProjects(user.id) as Promise<Project[]>
   },
   create: async (name: string, address?: string) => {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return null
-    return backendApi.getOrCreateDefaultProject(user.id) as Promise<Project | null>
+    return backendApi.createProject(user.id, name) as Promise<Project | null>
   },
   getOrCreateDefault: async () => {
     const user = (await supabase.auth.getUser()).data.user
     if (!user) return null
-    return backendApi.getOrCreateDefaultProject(user.id) as Promise<Project | null>
+    const projects = await backendApi.listProjects(user.id)
+    if (projects.length > 0) return projects[0] as Project
+    return backendApi.createProject(user.id, 'My Project') as Promise<Project | null>
   },
 }
 
