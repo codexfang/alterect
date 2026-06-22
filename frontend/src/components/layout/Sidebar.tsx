@@ -105,13 +105,12 @@ export function Sidebar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="px-6 mt-4"
+            className="px-6 pt-4"
           >
             <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 rounded-full shrink-0 bg-green-500" />
               <div className="min-w-0">
                 <p className="text-[13px] font-[450] text-ink truncate">{user.name}</p>
-                <p className="text-[11px] text-graphite">{user.email}</p>
               </div>
             </div>
           </motion.div>
