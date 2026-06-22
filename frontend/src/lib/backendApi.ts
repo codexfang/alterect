@@ -85,6 +85,7 @@ export const backendApi = {
     drawing_id: string
     sheet_name: string
     project_id: string
+    project_name: string
     discipline: string
     from_revision_number: number
     to_revision_number: number
@@ -123,6 +124,15 @@ export const backendApi = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }))
       throw new Error(err.detail || `Failed to mark all read (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string }>
+  },
+
+  async deleteAllAlerts(userId: string) {
+    const res = await fetch(`${API_BASE}/api/alerts-proxy/delete-all?user_id=${encodeURIComponent(userId)}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Delete alerts failed (${res.status})`)
     }
     return res.json() as Promise<{ status: string }>
   },

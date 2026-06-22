@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Bell, Loader2, CheckCheck, AlertTriangle, Plus, Minus, Pencil, ExternalLink, MailCheck } from 'lucide-react'
+import { Bell, Loader2, AlertTriangle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
 import { backendApi } from '@/lib/backendApi'
 
+function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1) }
+
 const SEVERITY_CONFIG: Record<string, { icon: typeof AlertTriangle; color: string; bg: string }> = {
   high: { icon: AlertTriangle, color: 'text-rust', bg: 'bg-red-50' },
   medium: { icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50' },
-  low: { icon: CheckCheck, color: 'text-green-600', bg: 'bg-green-50' },
+  low: { icon: AlertTriangle, color: 'text-green-600', bg: 'bg-green-50' },
 }
 
 const TRADE_COLORS: Record<string, string> = {
@@ -25,7 +27,6 @@ export default function Alerts() {
   const { user } = useAuth()
   const [alerts, setAlerts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [sendingSlack, setSendingSlack] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) loadAlerts()
@@ -43,27 +44,16 @@ export default function Alerts() {
     setLoading(false)
   }
 
-  const handleMarkRead = async (alertId: string) => {
+  const handleDeleteAll = async () => {
     if (!user) return
+    if (!window.confirm('Delete all alerts?')) return
     try {
-      await backendApi.markAlertRead(alertId, user.id)
-      setAlerts((prev) => prev.map((a) => (a.id === alertId ? { ...a, read: true } : a)))
+      await backendApi.deleteAllAlerts(user.id)
+      setAlerts([])
     } catch (e) {
-      console.error('Failed to mark alert read:', e)
+      console.error('Failed to delete alerts:', e)
     }
   }
-
-  const handleMarkAllRead = async () => {
-    if (!user) return
-    try {
-      await backendApi.markAllAlertsRead(user.id)
-      setAlerts((prev) => prev.map((a) => ({ ...a, read: true })))
-    } catch (e) {
-      console.error('Failed to mark all read:', e)
-    }
-  }
-
-  const unread = alerts.filter((a) => !a.read)
 
   return (
     <div className="p-6 space-y-6 pb-16">
@@ -72,14 +62,14 @@ export default function Alerts() {
           <h1 className="text-heading-sm text-ink">Alerts</h1>
           <p className="text-body text-graphite mt-1">
             {alerts.length > 0
-              ? `${alerts.length} alert${alerts.length !== 1 ? 's' : ''}${unread.length > 0 ? ` (${unread.length} unread)` : ''}`
+              ? `${alerts.length} alert${alerts.length !== 1 ? 's' : ''}`
               : 'Notifications about changes in your drawings.'}
           </p>
         </div>
-        {unread.length > 0 && (
-          <Button variant="secondary" onClick={handleMarkAllRead} size="sm">
-            <CheckCheck size={14} className="mr-1.5" />
-            Mark all read
+        {alerts.length > 0 && (
+          <Button variant="secondary" onClick={handleDeleteAll} size="sm">
+            <Trash2 size={14} className="mr-1.5" />
+            Delete all
           </Button>
         )}
       </div>
@@ -130,19 +120,19 @@ export default function Alerts() {
                     </div>
                     <p className="text-body text-graphite mb-2">{alert.description}</p>
                     <div className="flex items-center gap-3 flex-wrap text-caption">
-                      <span className={`px-2 py-0.5 rounded-full font-[430] ${tradeColor}`}>
-                        {alert.trade}
+                      <span className={`px-2.5 py-0.5 rounded-full font-[430] ${tradeColor}`}>
+                        {cap(alert.trade)}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full font-[430] ${sev.bg} ${sev.color}`}>
-                        {alert.severity}
+                      <span className={`px-2.5 py-0.5 rounded-full font-[430] ${sev.bg} ${sev.color}`}>
+                        {cap(alert.severity)}
                       </span>
-                      {alert.sheet_name && (
-                        <span className="text-graphite">{alert.sheet_name}</span>
+                      {alert.project_name && (
+                        <span className="text-graphite font-[450]">{alert.project_name}</span>
                       )}
                       {alert.revision && (
                         <span className="text-graphite">{alert.revision}</span>
                       )}
-                      <span className="text-dove/50">
+                      <span className="text-graphite">
                         {new Date(alert.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -151,17 +141,6 @@ export default function Alerts() {
                         })}
                       </span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!alert.read && (
-                      <button
-                        onClick={() => handleMarkRead(alert.id)}
-                        className="text-dove/40 hover:text-ink transition-colors"
-                        title="Mark as read"
-                      >
-                        <CheckCheck size={16} />
-                      </button>
-                    )}
                   </div>
                 </div>
               </Card>

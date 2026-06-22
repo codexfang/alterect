@@ -58,6 +58,7 @@ class AlertGenerateRequest(BaseModel):
     drawing_id: str
     sheet_name: str
     project_id: str
+    project_name: str
     discipline: str
     from_revision_number: int
     to_revision_number: int
@@ -106,6 +107,7 @@ async def generate_alerts(req: AlertGenerateRequest):
         "description": description,
         "trade": trade,
         "sheet_name": req.sheet_name,
+        "project_name": req.project_name,
         "revision": revision_str,
         "severity": severity,
         "change_count": req.change_count,
@@ -194,6 +196,24 @@ async def mark_all_read(user_id: str = Query(...)):
         if resp.status_code not in (200, 204):
             raise HTTPException(status_code=500, detail=f"Failed to mark all read: {resp.text}")
     return {"status": "ok"}
+
+
+@router.delete("/delete-all")
+async def delete_all_alerts(user_id: str = Query(...)):
+    """Delete all alerts for a user."""
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = _headers()
+    async with httpx.AsyncClient() as client:
+        resp = await client.delete(
+            f"{_SUPABASE_REST_URL}/alerts",
+            headers=headers,
+            params={"user_id": f"eq.{user_id}"},
+        )
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail=f"Failed to delete alerts: {resp.text}")
+    return {"status": "deleted"}
 
 
 @router.get("/unread-count")

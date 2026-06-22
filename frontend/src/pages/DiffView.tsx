@@ -93,11 +93,18 @@ export default function DiffView() {
       // Auto-generate alerts from this comparison
       if (user && drawing) {
         try {
+          const projectName = drawing.project_id
+            ? await backendApi.listProjects(user.id).then((projects) => {
+                const p = projects.find((pr: any) => pr.id === drawing.project_id)
+                return p?.name || drawing.sheet_name || 'Untitled'
+              }).catch(() => drawing.sheet_name || 'Untitled')
+            : drawing.sheet_name || 'Untitled'
           await backendApi.generateAlerts({
             user_id: user.id,
             drawing_id: drawing.id,
             sheet_name: drawing.sheet_name || 'Untitled',
             project_id: drawing.project_id || '',
+            project_name: projectName,
             discipline: (drawing as any).discipline || '',
             from_revision_number: prev.revision_number,
             to_revision_number: curr.revision_number,
