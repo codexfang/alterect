@@ -101,12 +101,15 @@ create table if not exists public.alerts (
   user_id uuid not null references public.profiles(id) on delete cascade,
   change_id uuid references public.changes(id) on delete set null,
   project_id uuid references public.projects(id) on delete cascade,
+  drawing_id uuid,
   title text not null,
   description text,
   trade text not null,
   sheet_name text,
   revision text,
   severity text check (severity in ('low', 'medium', 'high')),
+  change_count int default 0,
+  change_percentage numeric(5,2) default 0,
   read boolean default false,
   created_at timestamptz default now()
 );

@@ -77,4 +77,59 @@ export const backendApi = {
     }
     return res.json() as Promise<{ status: string; revision_id: string }>
   },
+
+  // ─── Alerts ───
+
+  async generateAlerts(data: {
+    user_id: string
+    drawing_id: string
+    sheet_name: string
+    project_id: string
+    discipline: string
+    from_revision_number: number
+    to_revision_number: number
+    change_count: number
+    change_percentage: number
+  }) {
+    const res = await fetch(`${API_BASE}/api/alerts-proxy/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Alert generation failed (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string; alerts: any[] }>
+  },
+
+  async listAlerts(userId: string) {
+    const res = await fetch(`${API_BASE}/api/alerts-proxy/list?user_id=${encodeURIComponent(userId)}`)
+    if (!res.ok) return []
+    return res.json() as Promise<any[]>
+  },
+
+  async markAlertRead(alertId: string, userId: string) {
+    const res = await fetch(`${API_BASE}/api/alerts-proxy/read?alert_id=${encodeURIComponent(alertId)}&user_id=${encodeURIComponent(userId)}`, { method: 'PUT' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Failed to mark alert read (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string }>
+  },
+
+  async markAllAlertsRead(userId: string) {
+    const res = await fetch(`${API_BASE}/api/alerts-proxy/read-all?user_id=${encodeURIComponent(userId)}`, { method: 'PUT' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Failed to mark all read (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string }>
+  },
+
+  async unreadAlertCount(userId: string) {
+    const res = await fetch(`${API_BASE}/api/alerts-proxy/unread-count?user_id=${encodeURIComponent(userId)}`)
+    if (!res.ok) return { count: 0 }
+    return res.json() as Promise<{ count: number }>
+  },
 }

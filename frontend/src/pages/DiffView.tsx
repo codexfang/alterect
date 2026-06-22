@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { GitCompare, Loader2, ArrowRight, FileText, AlertTriangle, CheckCircle, Plus, Minus, Pencil } from 'lucide-react'
+import { GitCompare, Loader2, ArrowRight, FileText, AlertTriangle, CheckCircle, Plus, Minus, Pencil, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useAuth } from '@/hooks/useAuth'
 import { revisions, drawings } from '@/lib/db'
+import { backendApi } from '@/lib/backendApi'
 import type { Revision, Drawing } from '@/lib/db'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
@@ -25,6 +27,7 @@ interface DiffResult {
 export default function DiffView() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [drawing, setDrawing] = useState<Drawing | null>(null)
   const [revs, setRevs] = useState<Revision[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,6 +37,7 @@ export default function DiffView() {
   const [diffing, setDiffing] = useState(false)
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
   const [error, setError] = useState('')
+  const [alertGenerated, setAlertGenerated] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setInitialLoading(false), 400)
@@ -84,6 +88,27 @@ export default function DiffView() {
       }
       const data: DiffResult = await res.json()
       setDiffResult(data)
+      setAlertGenerated(false)
+
+      // Auto-generate alerts from this comparison
+      if (user && drawing) {
+        try {
+          await backendApi.generateAlerts({
+            user_id: user.id,
+            drawing_id: drawing.id,
+            sheet_name: drawing.sheet_name || 'Untitled',
+            project_id: drawing.project_id || '',
+            discipline: (drawing as any).discipline || '',
+            from_revision_number: prev.revision_number,
+            to_revision_number: curr.revision_number,
+            change_count: data.change_count,
+            change_percentage: data.change_percentage,
+          })
+          setAlertGenerated(true)
+        } catch (alertErr) {
+          console.warn('Alert generation failed (non-fatal):', alertErr)
+        }
+      }
     } catch (e: any) {
       setError(e.message)
     }
@@ -265,6 +290,21 @@ export default function DiffView() {
                     </div>
                   )
                 })}
+              </div>
+            </Card>
+          )}
+
+          {/* Alert generated indicator */}
+          {alertGenerated && (
+            <Card padding="md" variant="warm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-green-700">
+                  <Bell size={16} />
+                  <span className="text-body">Alert generated for affected trades</span>
+                </div>
+                <Button variant="secondary" size="sm" onClick={() => navigate('/alerts')}>
+                  View Alerts
+                </Button>
               </div>
             </Card>
           )}
