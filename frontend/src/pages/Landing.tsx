@@ -100,7 +100,7 @@ export default function Landing() {
             onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
             className="flex items-center gap-3"
           >
-            <img src="/AlterectLogo.png" alt="Alterect" className="h-9 w-auto relative -top-[6px]" />
+            <img src={`${import.meta.env.BASE_URL}AlterectLogo.png`} alt="Alterect" className="h-9 w-auto relative -top-[6px]" />
             <span className="font-serif text-heading-sm text-ink">Alterect</span>
           </a>
           <div className="hidden md:flex items-center gap-1">
