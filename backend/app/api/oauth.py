@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 import httpx
-from supabase import create_client, Client
 
 from app.core.config import settings
 from app.models import OAuthState
@@ -14,6 +13,13 @@ from app.core.database import async_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/oauth", tags=["oauth"])
+
+SUPABASE_REST_URL = f"{settings.SUPABASE_URL}/rest/v1" if settings.SUPABASE_URL else None
+SUPABASE_HEADERS = {
+    "apikey": settings.SUPABASE_ANON_KEY or "",
+    "Authorization": f"Bearer {settings.SUPABASE_ANON_KEY or ''}",
+    "Content-Type": "application/json",
+}
 
 OAUTH_PROVIDERS = {
     "dropbox": {
@@ -139,24 +145,41 @@ async def oauth_callback(
         refresh_token = token_json.get("refresh_token")
 
         # Store tokens in Supabase (persistent across restarts)
-        if supabase:
-            existing = supabase.table("integrations").select("*").eq("user_id", user_id).eq("provider", provider).maybe_single().execute()
-            now = datetime.now(timezone.utc).isoformat()
-            if existing.data:
-                supabase.table("integrations").update({
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "connected": True,
-                    "updated_at": now,
-                }).eq("id", existing.data["id"]).execute()
-            else:
-                supabase.table("integrations").insert({
-                    "user_id": user_id,
-                    "provider": provider,
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "connected": True,
-                }).execute()
+        try:
+            async with httpx.AsyncClient() as client:
+                existing_resp = await client.get(
+                    f"{SUPABASE_REST_URL}/integrations",
+                    headers=SUPABASE_HEADERS,
+                    params={"user_id": f"eq.{user_id}", "provider": f"eq.{provider}", "select": "id"},
+                )
+                existing_data = existing_resp.json() if existing_resp.status_code == 200 else []
+                now = datetime.now(timezone.utc).isoformat()
+
+                if existing_data:
+                    await client.patch(
+                        f"{SUPABASE_REST_URL}/integrations?id=eq.{existing_data[0]['id']}",
+                        headers=SUPABASE_HEADERS,
+                        json={
+                            "access_token": access_token,
+                            "refresh_token": refresh_token,
+                            "connected": True,
+                            "updated_at": now,
+                        },
+                    )
+                else:
+                    await client.post(
+                        f"{SUPABASE_REST_URL}/integrations",
+                        headers={**SUPABASE_HEADERS, "Prefer": "return=minimal"},
+                        json={
+                            "user_id": user_id,
+                            "provider": provider,
+                            "access_token": access_token,
+                            "refresh_token": refresh_token,
+                            "connected": True,
+                        },
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to store token in Supabase: {e}")
 
         logger.info(f"Connected {provider} for user {user_id}")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/integrations?connected={provider}")
@@ -168,20 +191,32 @@ async def oauth_callback(
 
 @router.get("/status")
 async def oauth_status(uid: str = Query(..., description="Supabase user ID")):
-    if not supabase:
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_REST_URL}/integrations",
+                headers=SUPABASE_HEADERS,
+                params={"user_id": f"eq.{uid}", "connected": "eq.true", "select": "provider"},
+            )
+            data = resp.json() if resp.status_code == 200 else []
+            connected = [row["provider"] for row in data]
+            return {"connected": connected}
+    except Exception:
         return {"connected": []}
-    result = supabase.table("integrations").select("provider").eq("user_id", uid).eq("connected", True).execute()
-    connected = [row["provider"] for row in (result.data or [])]
-    return {"connected": connected}
 
 
 @router.post("/{provider}/disconnect")
 async def oauth_disconnect(provider: str, uid: str = Query(...)):
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
-    if supabase:
-        supabase.table("integrations").update({
-            "connected": False,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("user_id", uid).eq("provider", provider).execute()
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.patch(
+                f"{SUPABASE_REST_URL}/integrations",
+                headers=SUPABASE_HEADERS,
+                params={"user_id": f"eq.{uid}", "provider": f"eq.{provider}"},
+                json={"connected": False, "updated_at": datetime.now(timezone.utc).isoformat()},
+            )
+    except Exception as e:
+        logger.warning(f"Failed to disconnect in Supabase: {e}")
     return {"status": "disconnected", "provider": provider}
