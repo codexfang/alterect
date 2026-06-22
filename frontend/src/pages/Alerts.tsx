@@ -1,7 +1,26 @@
-import { Bell } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 export default function Alerts() {
+  const [loading] = useState(false)
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-heading-sm text-ink">Alerts</h1>
+          <p className="text-body text-graphite mt-1">Notifications about changes in your drawings.</p>
+        </div>
+        <Card padding="lg">
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={24} className="text-graphite animate-spin" />
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>

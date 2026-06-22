@@ -90,6 +90,14 @@ export default function Integrations() {
         </div>
       </div>
 
+      {loading ? (
+        <Card padding="lg">
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={24} className="text-graphite animate-spin" />
+          </div>
+        </Card>
+      ) : (
+      <>
       {successMsg && (
         <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-2 text-body text-green-800">
           <Check size={16} className="shrink-0" />
@@ -162,6 +170,7 @@ export default function Integrations() {
           </div>
         </Card>
       )}
+      </>)}
     </div>
   )
 }

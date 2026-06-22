@@ -59,6 +59,7 @@ export function TopNav() {
         >
           <div className="px-3 py-2 border-b border-dove/10">
             <p className="text-body font-[450] text-ink">{user?.name}</p>
+            <p className="text-caption text-graphite">{user?.email}</p>
           </div>
 
           <div className="px-1 pt-1">
