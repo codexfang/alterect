@@ -73,6 +73,9 @@ export default function Login() {
               Sign in
               <ArrowRight size={18} className="ml-1.5" />
             </Button>
+            {error && (
+              <p className="text-[13px] text-red-600 text-center">{error}</p>
+            )}
           </form>
         </motion.div>
       </div>
