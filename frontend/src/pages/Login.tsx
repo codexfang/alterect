@@ -28,8 +28,8 @@ export default function Login() {
         return
       }
       navigate('/dashboard')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+    } catch {
+      setError('Alterect is not yet available to the public.')
     }
   }
 
