@@ -60,6 +60,11 @@ export default function App() {
           <ToastProvider>
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/overview" element={<Landing />} />
+              <Route path="/workflow" element={<Landing />} />
+              <Route path="/features" element={<Landing />} />
+              <Route path="/pricing" element={<Landing />} />
+              <Route path="/resources" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/privacy" element={<Legal />} />

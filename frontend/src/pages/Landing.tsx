@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
 import {
   ArrowRight,
@@ -84,9 +85,32 @@ function Section({ children, className = '', id }: { children: React.ReactNode; 
   )
 }
 
+const sectionMap: Record<string, string> = {
+  '/overview': 'how-it-works',
+  '/workflow': 'workflow',
+  '/features': 'features',
+  '/pricing': 'pricing',
+  '/resources': 'resources',
+}
+
 export default function Landing() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [showWaitlist, setShowWaitlist] = useState(false)
+
+  useEffect(() => {
+    const id = sectionMap[location.pathname]
+    if (id) {
+      // small delay to let the DOM render
+      const timer = setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+      return () => clearTimeout(timer)
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [location.pathname])
   return (
     <div className="min-h-screen bg-white overflow-hidden">
       <motion.nav
@@ -98,7 +122,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <a
             href="/"
-            onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            onClick={(e) => { e.preventDefault(); navigate('/') }}
             className="flex items-center gap-3"
           >
             <img src={`${import.meta.env.BASE_URL}AlterectLogo.png`} alt="Alterect" className="h-9 w-auto relative -top-[6px]" />
@@ -106,19 +130,25 @@ export default function Landing() {
           </a>
           <div className="hidden md:flex items-center gap-1">
             {[
-              { label: 'Overview', href: '#how-it-works' },
-              { label: 'Workflow', href: '#workflow' },
-              { label: 'Features', href: '#features' },
-              { label: 'Pricing', href: '#pricing' },
-              { label: 'Resources', href: '#resources' },
+              { label: 'Overview', to: '/overview', id: 'how-it-works' },
+              { label: 'Workflow', to: '/workflow', id: 'workflow' },
+              { label: 'Features', to: '/features', id: 'features' },
+              { label: 'Pricing', to: '/pricing', id: 'pricing' },
+              { label: 'Resources', to: '/resources', id: 'resources' },
             ].map((item) => (
-              <a
+              <button
                 key={item.label}
-                href={item.href}
-                className="px-3 py-2 text-body text-ink hover:text-rust transition-colors rounded-xl hover:bg-fog"
+                onClick={() => {
+                  if (location.pathname === item.to) {
+                    document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })
+                  } else {
+                    navigate(item.to)
+                  }
+                }}
+                className={`px-3 py-2 text-body transition-colors rounded-xl hover:bg-fog ${location.pathname === item.to ? 'text-rust' : 'text-ink hover:text-rust'}`}
               >
                 {item.label}
-              </a>
+              </button>
             ))}
           </div>
           <div className="flex items-center gap-3">
