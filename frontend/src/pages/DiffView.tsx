@@ -261,7 +261,7 @@ export default function DiffView() {
           {/* Diff overlay image */}
           {diffResult.overlay_url && (
             <Card padding="md">
-              <h3 className="text-subheading text-ink mb-3">Changes highlighted (red boxes)</h3>
+              <h3 className="text-subheading text-ink mb-3">Changes highlighted</h3>
               <div className="bg-fog rounded-xl p-2 border border-dove/10">
                 <img
                   src={diffResult.overlay_url}
