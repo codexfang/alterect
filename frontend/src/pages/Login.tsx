@@ -4,11 +4,14 @@ import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+
+const ALLOWED_EMAIL = 'jasonfang102@gmail.com'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, logout } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,6 +21,12 @@ export default function Login() {
     setError('')
     try {
       await login(email, password)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || user.email !== ALLOWED_EMAIL) {
+        await logout()
+        setError('Alterect is not yet available to the public.')
+        return
+      }
       navigate('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
