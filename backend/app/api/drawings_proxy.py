@@ -32,6 +32,7 @@ def _headers():
 async def upload_drawing(
     file: UploadFile = File(...),
     user_id: str = Form(...),
+    discipline: str = Form(""),
 ):
     if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
         raise HTTPException(status_code=500, detail="Supabase not configured")
@@ -138,15 +139,18 @@ async def upload_drawing(
             project_id = create_resp.json()[0]["id"]
 
         # 4. Create drawing record
+        drawing_body = {
+            "project_id": project_id,
+            "user_id": user_id,
+            "sheet_name": sheet_name,
+            "file_url": file_url,
+        }
+        if discipline:
+            drawing_body["discipline"] = discipline
         drawing_resp = await client.post(
             f"{_SUPABASE_REST_URL}/drawings",
             headers={**headers, "Prefer": "return=representation"},
-            json={
-                "project_id": project_id,
-                "user_id": user_id,
-                "sheet_name": sheet_name,
-                "file_url": file_url,
-            },
+            json=drawing_body,
         )
         if drawing_resp.status_code not in (200, 201):
             raise HTTPException(
@@ -239,6 +243,77 @@ async def get_drawing(drawing_id: str = Query(...)):
         if resp.status_code != 200 or not resp.json():
             raise HTTPException(status_code=404, detail="Drawing not found")
         return resp.json()[0]
+
+
+def _extract_storage_path(file_url: str) -> str | None:
+    if not file_url:
+        return None
+    prefix = "/public/drawings/"
+    idx = file_url.find(prefix)
+    if idx == -1:
+        return None
+    return file_url[idx + len(prefix):]
+
+
+@router.delete("/delete")
+async def delete_drawing(drawing_id: str = Query(...), user_id: str = Query(...)):
+    if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = _headers()
+
+    async with httpx.AsyncClient() as client:
+        # 1. Get the drawing
+        draw_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=headers,
+            params={"id": f"eq.{drawing_id}", "select": "*"},
+        )
+        if draw_resp.status_code != 200 or not draw_resp.json():
+            raise HTTPException(status_code=404, detail="Drawing not found")
+        drawing = draw_resp.json()[0]
+
+        if drawing.get("user_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        # 2. Get all revisions to collect storage paths
+        rev_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/revisions",
+            headers=headers,
+            params={"drawing_id": f"eq.{drawing_id}", "select": "file_url"},
+        )
+        revision_urls = [r["file_url"] for r in (rev_resp.json() if rev_resp.status_code == 200 else [])]
+
+        # 3. Collect all storage paths to delete
+        paths = []
+        for url in [drawing.get("file_url", "")] + revision_urls:
+            path = _extract_storage_path(url)
+            if path:
+                paths.append(path)
+
+        # 4. Delete storage objects
+        if paths:
+            unique_paths = list(set(paths))
+            try:
+                storage_headers = {**_headers(), "Content-Type": "application/json"}
+                await client.post(
+                    f"{_SUPABASE_STORAGE_URL}/object/drawings/delete",
+                    headers=storage_headers,
+                    json={"prefixes": unique_paths},
+                )
+            except Exception as e:
+                logger.warning(f"Storage cleanup failed: {e}")
+
+        # 5. Delete the drawing (cascades to revisions, changes, alerts)
+        del_resp = await client.delete(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=headers,
+            params={"id": f"eq.{drawing_id}"},
+        )
+        if del_resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail=f"Failed to delete drawing: {del_resp.text}")
+
+        return {"status": "deleted", "drawing_id": drawing_id}
 
 
 @router.get("/projects/default")

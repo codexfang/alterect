@@ -4,9 +4,19 @@ import { Upload, Search, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
-import { storage } from '@/lib/db'
 import { backendApi } from '@/lib/backendApi'
 import type { Drawing } from '@/lib/db'
+
+const DISCIPLINES = [
+  { value: '', label: 'Auto-detect' },
+  { value: 'architectural', label: 'Architectural' },
+  { value: 'structural', label: 'Structural' },
+  { value: 'electrical', label: 'Electrical' },
+  { value: 'mechanical', label: 'Mechanical' },
+  { value: 'plumbing', label: 'Plumbing' },
+  { value: 'civil', label: 'Civil' },
+  { value: 'other', label: 'Other' },
+]
 
 export default function Drawings() {
   const navigate = useNavigate()
@@ -16,6 +26,8 @@ export default function Drawings() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [discipline, setDiscipline] = useState('')
+  const [deleting, setDeleting] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -43,7 +55,7 @@ export default function Drawings() {
     setUploadError('')
 
     try {
-      await backendApi.uploadDrawing(file, user.id)
+      await backendApi.uploadDrawing(file, user.id, discipline)
       await loadDrawings()
     } catch (e: any) {
       setUploadError(e.message)
@@ -52,6 +64,20 @@ export default function Drawings() {
 
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleDelete = async (drawingId: string, name: string) => {
+    if (!window.confirm(`Delete "${name}" and all its revisions?`)) return
+    if (!user) return
+
+    setDeleting(drawingId)
+    try {
+      await backendApi.deleteDrawing(drawingId, user.id)
+      await loadDrawings()
+    } catch (e: any) {
+      console.error('Delete failed:', e.message)
+    }
+    setDeleting(null)
   }
 
   const filtered = drawingList.filter((d) =>
@@ -77,8 +103,19 @@ export default function Drawings() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search drawings..."
-              className="w-56 pl-9 pr-4 py-2 bg-white rounded-[12px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 transition-all border border-dove/10"
+              className="w-48 pl-9 pr-4 py-2 bg-white rounded-[12px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 transition-all border border-dove/10"
             />
+          </div>
+          <div className="flex items-center gap-2 bg-white rounded-[12px] border border-dove/10 px-3 py-2">
+            <select
+              value={discipline}
+              onChange={(e) => setDiscipline(e.target.value)}
+              className="text-body text-ink bg-transparent focus:outline-none cursor-pointer"
+            >
+              {DISCIPLINES.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </select>
           </div>
           <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
             {uploading ? (
@@ -190,6 +227,18 @@ export default function Drawings() {
                         className="text-body text-graphite hover:text-ink transition-colors"
                       >
                         Compare
+                      </button>
+                      <span className="text-dove/20 text-body font-light select-none">/</span>
+                      <button
+                        onClick={() => handleDelete(d.id, d.sheet_name)}
+                        disabled={deleting === d.id}
+                        className="text-body text-red-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                      >
+                        {deleting === d.id ? (
+                          <Loader2 size={14} className="animate-spin inline" />
+                        ) : (
+                          'Delete'
+                        )}
                       </button>
                     </div>
                   </td>

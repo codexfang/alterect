@@ -1,10 +1,11 @@
 const API_BASE = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
 
 export const backendApi = {
-  async uploadDrawing(file: File, userId: string) {
+  async uploadDrawing(file: File, userId: string, discipline = '') {
     const form = new FormData()
     form.append('file', file)
     form.append('user_id', userId)
+    form.append('discipline', discipline)
     const res = await fetch(`${API_BASE}/api/drawings-proxy/upload`, { method: 'POST', body: form })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }))
@@ -35,5 +36,14 @@ export const backendApi = {
     const res = await fetch(`${API_BASE}/api/drawings-proxy/projects/default?user_id=${encodeURIComponent(userId)}`)
     if (!res.ok) return null
     return res.json() as Promise<any>
+  },
+
+  async deleteDrawing(drawingId: string, userId: string) {
+    const res = await fetch(`${API_BASE}/api/drawings-proxy/delete?drawing_id=${encodeURIComponent(drawingId)}&user_id=${encodeURIComponent(userId)}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Delete failed (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string; drawing_id: string }>
   },
 }
