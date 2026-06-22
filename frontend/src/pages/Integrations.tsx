@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Check, X, Loader2, ExternalLink, FolderSync, Bell } from 'lucide-react'
+import { Check, X, Loader2, ExternalLink, FolderSync, Bell, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
+import { backendApi } from '@/lib/backendApi'
 
 const integrationList = [
   {
@@ -23,6 +24,48 @@ const integrationList = [
 ]
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
+
+function SyncDropboxButton({ userId }: { userId: string | undefined }) {
+  const [syncing, setSyncing] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  const handleSync = async () => {
+    if (!userId) return
+    setSyncing(true)
+    setResult(null)
+    try {
+      const data = await backendApi.dropboxSync(userId)
+      if (data.imported > 0) {
+        setResult(`Imported ${data.imported} drawing${data.imported !== 1 ? 's' : ''}`)
+      } else {
+        setResult('No new files found')
+      }
+    } catch (e: any) {
+      setResult(`Sync failed: ${e.message}`)
+    }
+    setSyncing(false)
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={handleSync}
+        disabled={syncing}
+        className="flex items-center gap-1.5 text-[12px] text-rust hover:text-rust/80 transition-colors"
+      >
+        {syncing ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <RefreshCw size={12} />
+        )}
+        {syncing ? 'Syncing...' : 'Sync now'}
+      </button>
+      {result && (
+        <p className="text-[11px] text-graphite mt-0.5">{result}</p>
+      )}
+    </div>
+  )
+}
 
 export default function Integrations() {
   const { user } = useAuth()
@@ -137,6 +180,9 @@ export default function Integrations() {
                       <span>{f}</span>
                     </div>
                   ))}
+                  {integration.id === 'dropbox' && (
+                    <SyncDropboxButton userId={user?.id} />
+                  )}
                 </div>
               )}
 

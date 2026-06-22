@@ -170,6 +170,17 @@ export const backendApi = {
     }>
   },
 
+  // ─── Dropbox Ingestion ───
+
+  async dropboxSync(userId: string) {
+    const res = await fetch(`${API_BASE}/api/ingestion/dropbox/sync?user_id=${encodeURIComponent(userId)}`, { method: 'POST' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || `Dropbox sync failed (${res.status})`)
+    }
+    return res.json() as Promise<{ status: string; total_found: number; imported: number; results: any[] }>
+  },
+
   async unreadAlertCount(userId: string) {
     const res = await fetch(`${API_BASE}/api/alerts-proxy/unread-count?user_id=${encodeURIComponent(userId)}`)
     if (!res.ok) return { count: 0 }

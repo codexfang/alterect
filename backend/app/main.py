@@ -17,6 +17,7 @@ from app.api.diff import router as diff_router
 from app.api.drawings_proxy import router as drawings_proxy_router
 from app.api.alerts_proxy import router as alerts_proxy_router
 from app.api.risk_proxy import router as risk_proxy_router
+from app.api.ingestion_proxy import router as ingestion_proxy_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ app.include_router(diff_router, prefix="/api")
 app.include_router(drawings_proxy_router, prefix="/api")
 app.include_router(alerts_proxy_router, prefix="/api")
 app.include_router(risk_proxy_router, prefix="/api")
+app.include_router(ingestion_proxy_router, prefix="/api")
 
 
 @app.get("/health")

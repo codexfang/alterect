@@ -42,7 +42,11 @@ if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
     _SUPABASE_KEY = settings.SUPABASE_SERVICE_ROLE_KEY.strip()
 
 
-async def _supabase_upsert(user_id: str, provider: str, access_token: str | None, refresh_token: str | None):
+async def _supabase_upsert(
+    user_id: str, provider: str,
+    access_token: str | None, refresh_token: str | None,
+    extra_settings: dict | None = None,
+):
     if not _SUPABASE_REST_URL or not _SUPABASE_KEY:
         return
     headers = {
@@ -51,19 +55,23 @@ async def _supabase_upsert(user_id: str, provider: str, access_token: str | None
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates",
     }
+    payload = {
+        "user_id": user_id,
+        "provider": provider,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "connected": True,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if extra_settings:
+        payload["settings"] = extra_settings
+
     try:
         async with httpx.AsyncClient() as client:
             await client.post(
                 f"{_SUPABASE_REST_URL}/integrations?on_conflict=user_id,provider",
                 headers=headers,
-                json={
-                    "user_id": user_id,
-                    "provider": provider,
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "connected": True,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                },
+                json=payload,
             )
     except Exception as e:
         logger.warning(f"Supabase upsert failed for {provider}: {e}")
@@ -237,8 +245,26 @@ async def oauth_callback(
 
             await db.commit()
 
+        # Fetch Dropbox account_id for webhook mapping
+        account_id = None
+        if provider == "dropbox" and access_token:
+            try:
+                async with httpx.AsyncClient() as ac:
+                    acct_resp = await ac.post(
+                        "https://api.dropboxapi.com/2/users/get_current_account",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    )
+                    if acct_resp.status_code == 200:
+                        account_id = acct_resp.json().get("account_id")
+            except Exception as e:
+                logger.warning(f"Failed to fetch Dropbox account_id: {e}")
+
+        settings_data = {}
+        if account_id:
+            settings_data["dropbox_account_id"] = account_id
+
         # Also persist to Supabase for cross-restart durability
-        await _supabase_upsert(user_id, provider, access_token, refresh_token)
+        await _supabase_upsert(user_id, provider, access_token, refresh_token, settings_data)
 
         logger.info(f"Successfully connected {provider} for user {user_id}")
         return RedirectResponse(
