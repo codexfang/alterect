@@ -14,6 +14,7 @@ export default function Drawings() {
   const [drawingList, setDrawingList] = useState<Drawing[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function Drawings() {
     if (!file || !user) return
 
     setUploading(true)
+    setUploadError('')
 
     try {
       const { url } = await storage.uploadDrawing(file, user.id)
@@ -61,6 +63,7 @@ export default function Drawings() {
 
       await loadDrawings()
     } catch (e: any) {
+      setUploadError(e.message)
       console.error('Upload failed:', e.message)
     }
 
@@ -111,6 +114,12 @@ export default function Drawings() {
           />
         </div>
       </div>
+
+      {uploadError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-body text-red-700">
+          Upload failed: {uploadError}
+        </div>
+      )}
 
       {loading ? (
         <Card padding="lg">
