@@ -78,39 +78,24 @@ async def upload_drawing(
 
         file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/drawings/{file_path}"
 
-        # 2. Check if a drawing with the same sheet_name already exists
+        # 2. Check if user already has a drawing (single-drawing model)
         existing_drawings = []
         try:
-            eq_resp = await client.get(
+            all_resp = await client.get(
                 f"{_SUPABASE_REST_URL}/drawings",
                 headers=headers,
-                params={"user_id": f"eq.{user_id}", "sheet_name": f"eq.{sheet_name}", "select": "*", "limit": "1"},
+                params={"user_id": f"eq.{user_id}", "select": "*", "limit": "1"},
             )
-            if eq_resp.status_code == 200:
-                existing_drawings = eq_resp.json()
+            if all_resp.status_code == 200:
+                existing_drawings = all_resp.json()
         except Exception:
             pass
 
-        if not existing_drawings:
-            # Fallback: fetch all user drawings and match in Python
-            try:
-                all_resp = await client.get(
-                    f"{_SUPABASE_REST_URL}/drawings",
-                    headers=headers,
-                    params={"user_id": f"eq.{user_id}", "select": "*"},
-                )
-                if all_resp.status_code == 200:
-                    all_drawings = all_resp.json()
-                    existing_drawings = [d for d in all_drawings if d.get("sheet_name", "").lower() == sheet_name.lower()]
-            except Exception:
-                pass
-
         if existing_drawings:
-            # New revision for existing drawing
+            # New revision for same drawing — every upload increments the rev
             drawing = existing_drawings[0]
             drawing_id = drawing["id"]
 
-            # Get current max revision number
             rev_resp = await client.get(
                 f"{_SUPABASE_REST_URL}/revisions",
                 headers=headers,
@@ -119,7 +104,6 @@ async def upload_drawing(
             existing_revs = rev_resp.json() if rev_resp.status_code == 200 else []
             next_rev = (existing_revs[0]["revision_number"] + 1) if existing_revs else 1
 
-            # Create new revision
             revision_resp = await client.post(
                 f"{_SUPABASE_REST_URL}/revisions",
                 headers={**headers, "Prefer": "return=representation"},
@@ -139,8 +123,7 @@ async def upload_drawing(
 
             revision = revision_resp.json()[0]
 
-            # Update drawing's file_url and current_revision
-            patch_data = {"file_url": file_url, "current_revision": next_rev}
+            patch_data = {"file_url": file_url, "current_revision": next_rev, "sheet_name": sheet_name}
             if not drawing.get("discipline"):
                 detected = auto_detect_discipline(file.filename or sheet_name)
                 if detected:
@@ -153,7 +136,7 @@ async def upload_drawing(
             )
 
             return {
-                "drawing": {**drawing, "current_revision": next_rev, "file_url": file_url},
+                "drawing": {**drawing, "current_revision": next_rev, "file_url": file_url, "sheet_name": sheet_name},
                 "revision": revision,
                 "file_url": file_url,
                 "is_new_revision": True,
