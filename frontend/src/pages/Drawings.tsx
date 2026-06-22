@@ -30,6 +30,7 @@ export default function Drawings() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [discipline, setDiscipline] = useState('')
+  const [currentDiscipline, setCurrentDiscipline] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -68,6 +69,7 @@ export default function Drawings() {
       const projectDrawing = drawings.find((d: any) => d.project_id === projectId)
       if (projectDrawing) {
         setDrawingId(projectDrawing.id)
+        setCurrentDiscipline(projectDrawing.discipline || '')
         const revs = await backendApi.listRevisions(projectDrawing.id)
         setRevisions(revs)
       }
@@ -305,6 +307,7 @@ export default function Drawings() {
                       <thead>
                         <tr className="border-b border-dove/10">
                           <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Revision</th>
+                          <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Discipline</th>
                           <th className="text-left text-caption text-graphite font-[430] px-5 py-3">Uploaded</th>
                           <th className="text-right text-caption text-graphite font-[430] px-5 py-3">Actions</th>
                         </tr>
@@ -319,6 +322,15 @@ export default function Drawings() {
                                 </div>
                                 <span className="text-body text-ink font-[450]">Rev {r.revision_number}</span>
                               </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              {currentDiscipline ? (
+                                <span className="inline-block px-2.5 py-0.5 bg-fog rounded-full text-caption text-graphite font-[430] capitalize">
+                                  {currentDiscipline}
+                                </span>
+                              ) : (
+                                <span className="text-caption text-dove/50">—</span>
+                              )}
                             </td>
                             <td className="px-5 py-4">
                               <span className="text-body text-graphite">
