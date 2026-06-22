@@ -28,6 +28,26 @@ def _headers():
     }
 
 
+_DISCIPLINE_KEYWORDS = {
+    "architectural": ["arch", "archi", "plan", "elevation", "section", "floorplan", "floor_plan", "a-"],
+    "structural": ["struc", "struct", "column", "beam", "foundation", "framing", "s-"],
+    "electrical": ["elec", "electric", "power", "lighting", "conduit", "panel", "e-"],
+    "mechanical": ["mech", "hvac", "duct", "exhaust", "supply", "m-"],
+    "plumbing": ["plumb", "pipe", "drain", "water", "sewer", "gas", "p-"],
+    "civil": ["civil", "site", "grading", "road", "utility", "c-"],
+}
+
+
+def auto_detect_discipline(filename: str) -> str:
+    """Detect discipline from filename based on common prefixes and keywords."""
+    name = filename.lower().replace("_", " ").replace("-", " ").replace(".", " ")
+    for discipline, keywords in _DISCIPLINE_KEYWORDS.items():
+        for kw in keywords:
+            if kw in name:
+                return discipline
+    return ""
+
+
 @router.post("/upload")
 async def upload_drawing(
     file: UploadFile = File(...),
@@ -120,11 +140,16 @@ async def upload_drawing(
             revision = revision_resp.json()[0]
 
             # Update drawing's file_url and current_revision
+            patch_data = {"file_url": file_url, "current_revision": next_rev}
+            if not drawing.get("discipline"):
+                detected = auto_detect_discipline(file.filename or sheet_name)
+                if detected:
+                    patch_data["discipline"] = detected
             await client.patch(
                 f"{_SUPABASE_REST_URL}/drawings",
                 headers=headers,
                 params={"id": f"eq.{drawing_id}"},
-                json={"file_url": file_url, "current_revision": next_rev},
+                json=patch_data,
             )
 
             return {
@@ -157,7 +182,9 @@ async def upload_drawing(
                 )
             project_id = create_resp.json()[0]["id"]
 
-        # 4. Create drawing record with current_revision=1
+        # 4. Auto-detect discipline if not set
+        final_discipline = discipline or auto_detect_discipline(file.filename or sheet_name)
+
         drawing_body = {
             "project_id": project_id,
             "user_id": user_id,
@@ -165,8 +192,8 @@ async def upload_drawing(
             "file_url": file_url,
             "current_revision": 1,
         }
-        if discipline:
-            drawing_body["discipline"] = discipline
+        if final_discipline:
+            drawing_body["discipline"] = final_discipline
         drawing_resp = await client.post(
             f"{_SUPABASE_REST_URL}/drawings",
             headers={**headers, "Prefer": "return=representation"},

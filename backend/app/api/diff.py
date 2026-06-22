@@ -32,11 +32,40 @@ class DiffResponse(BaseModel):
     overlay_url: str | None = None
 
 
+def _is_pdf(url_or_name: str) -> bool:
+    return url_or_name.lower().endswith(".pdf")
+
+
+def _pix_to_cv2(pix) -> np.ndarray:
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+    if pix.n == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+    elif pix.n == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    elif pix.n == 1:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    return img
+
+
 async def download_image(url: str) -> np.ndarray:
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.get(url)
         resp.raise_for_status()
-    buf = BytesIO(resp.content)
+    data = resp.content
+    buf = BytesIO(data)
+
+    if _is_pdf(url):
+        try:
+            import fitz
+            doc = fitz.open(stream=data, filetype="pdf")
+            page = doc[0]
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+            img = _pix_to_cv2(pix)
+            doc.close()
+            return img
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to decode PDF from {url}: {e}")
+
     buf.seek(0)
     arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
