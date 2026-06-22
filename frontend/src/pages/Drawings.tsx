@@ -353,7 +353,7 @@ export default function Drawings() {
                                 <span className="text-dove/30 text-body font-light select-none">/</span>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleDeleteRevision(r.id) }}
-                                  className="text-body text-dove/40 hover:text-red-400 transition-colors"
+                                  className="text-body text-red-400 hover:text-red-600 transition-colors"
                                 >
                                   Delete
                                 </button>
