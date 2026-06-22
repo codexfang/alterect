@@ -5,7 +5,6 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopNav } from '@/components/layout/TopNav'
 import { ChatInterface } from '@/components/chat/ChatInterface'
-import { CookieConsent } from '@/components/ui/CookieConsent'
 import Landing from '@/pages/Landing'
 import Dashboard from '@/pages/Dashboard'
 import Drawings from '@/pages/Drawings'
@@ -73,7 +72,6 @@ export default function App() {
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            <CookieConsent />
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

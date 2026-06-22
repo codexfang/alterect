@@ -19,44 +19,6 @@ Alterect is a Git-for-construction-drawings platform that automatically detects 
 4. **Get alerts** — affected trades are notified via Slack or in-app.
 5. **Ask questions** — use natural language to query changes across your project.
 
-## Live
-
-- **Frontend**: https://codexfang.github.io/alterect/
-- **Backend**: https://alterect-api.onrender.com
-
-## Project Structure
-
-```
-├── frontend/          # React + Vite (deployed to GitHub Pages)
-├── backend/           # FastAPI (deployed to Render)
-│   ├── api/          # Routes (main + OAuth)
-│   ├── core/         # Config, database, auth
-│   ├── models/       # SQLAlchemy models
-│   └── services/     # PDF parsing, diff engine
-├── supabase-schema.sql
-└── .github/workflows/
-```
-
-## Local Development
-
-```bash
-# Frontend
-cd frontend
-cp .env.example .env
-npm install
-npm run dev            # http://localhost:5173
-
-# Backend
-cd backend
-cp .env.example .env
-./venv/bin/uvicorn app.main:app --reload --port 8000
-```
-
-## Deployment
-
-- **Frontend**: Push to `main` → GitHub Actions builds and deploys to GitHub Pages
-- **Backend**: Connected to Render — auto-deploys from `main`
-
 ## Tech Stack
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS v4, Framer Motion
