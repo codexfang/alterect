@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -65,7 +65,6 @@ export default function Login() {
               <ArrowRight size={18} className="ml-1.5" />
             </Button>
           </form>
-          <p className="text-center text-caption text-graphite mt-6">
         </motion.div>
       </div>
 
