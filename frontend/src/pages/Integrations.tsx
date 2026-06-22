@@ -22,7 +22,7 @@ const integrationList = [
   },
 ]
 
-const BACKEND_URL = 'http://localhost:8000'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
 
 export default function Integrations() {
   const { user } = useAuth()
