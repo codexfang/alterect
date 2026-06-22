@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { GitCompare, Loader2, ArrowRight, FileText, AlertTriangle, CheckCircle, Trash2, Plus, Minus, Pencil } from 'lucide-react'
+import { GitCompare, Loader2, ArrowRight, FileText, AlertTriangle, CheckCircle, Plus, Minus, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { useAuth } from '@/hooks/useAuth'
 import { revisions, drawings } from '@/lib/db'
-import { backendApi } from '@/lib/backendApi'
 import type { Revision, Drawing } from '@/lib/db'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://alterect-api.onrender.com'
@@ -27,7 +25,6 @@ interface DiffResult {
 export default function DiffView() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
   const [drawing, setDrawing] = useState<Drawing | null>(null)
   const [revs, setRevs] = useState<Revision[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,17 +60,6 @@ export default function DiffView() {
       }
     }
     setLoading(false)
-  }
-
-  const handleDeleteRevision = async (revId: string) => {
-    if (!window.confirm('Delete this revision?')) return
-    if (!user) return
-    try {
-      await backendApi.deleteRevision(revId, user.id)
-      await loadDrawing()
-    } catch (e: any) {
-      console.error('Failed to delete revision:', e)
-    }
   }
 
   const handleCompare = async () => {
@@ -306,12 +292,6 @@ export default function DiffView() {
                     View
                   </a>
                 )}
-                <button
-                  onClick={() => handleDeleteRevision(r.id)}
-                  className="text-dove/40 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
             </div>
           ))}

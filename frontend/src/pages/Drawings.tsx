@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Search, FileText, Loader2, Folder, FolderPlus, Trash2, ChevronLeft, X } from 'lucide-react'
+import { Upload, Search, FileText, Loader2, Folder, FolderPlus, Trash2, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
@@ -353,9 +353,9 @@ export default function Drawings() {
                                 <span className="text-dove/30 text-body font-light select-none">/</span>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleDeleteRevision(r.id) }}
-                                  className="text-dove/40 hover:text-red-400 transition-colors"
+                                  className="text-body text-dove/40 hover:text-red-400 transition-colors"
                                 >
-                                  <X size={14} />
+                                  Delete
                                 </button>
                               </div>
                             </td>

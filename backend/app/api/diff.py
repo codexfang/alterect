@@ -84,28 +84,46 @@ async def download_image(url: str) -> np.ndarray:
     return img
 
 
-def classify_region(prev_gray: np.ndarray, curr_gray: np.ndarray, x: int, y: int, w: int, h: int) -> ChangeType:
-    """Classify a region as added, removed, or modified by checking which
-    image has meaningful content (non-white / non-background) in the region."""
+def classify_region(
+    prev_gray: np.ndarray, curr_gray: np.ndarray,
+    region_mask: np.ndarray, x: int, y: int, w: int, h: int,
+) -> ChangeType:
+    """Per-pixel classification inside the region mask.
+    
+    For each changed pixel we check the original images to determine whether
+    content was *added* (dark in curr, white in prev), *removed* (dark in
+    prev, white in curr), or *modified* (dark in both, just shifted).
+    Majority vote wins.
+    """
     roi_prev = prev_gray[y:y+h, x:x+w]
     roi_curr = curr_gray[y:y+h, x:x+w]
 
-    _, prev_bin = cv2.threshold(roi_prev, 240, 255, cv2.THRESH_BINARY_INV)
-    _, curr_bin = cv2.threshold(roi_curr, 240, 255, cv2.THRESH_BINARY_INV)
+    # Binarise each ROI adaptively with Otsu
+    prev_bin = cv2.threshold(roi_prev, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    curr_bin = cv2.threshold(roi_curr, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
 
-    prev_pixels = cv2.countNonZero(prev_bin)
-    curr_pixels = cv2.countNonZero(curr_bin)
-    total = w * h
+    # Only look at pixels that the diff says changed
+    changed = region_mask[y:y+h, x:x+w] > 0
 
-    prev_ratio = prev_pixels / total
-    curr_ratio = curr_pixels / total
+    # For each changed pixel: is there drawing content in prev / curr?
+    prev_has = (prev_bin > 0) & changed
+    curr_has = (curr_bin > 0) & changed
 
-    if prev_ratio < 0.05 and curr_ratio >= 0.05:
-        return ChangeType.ADDED
-    elif prev_ratio >= 0.05 and curr_ratio < 0.05:
-        return ChangeType.REMOVED
-    else:
+    added   = int(np.sum(curr_has & ~prev_has))
+    removed = int(np.sum(prev_has & ~curr_has))
+
+    total_changed = int(np.sum(changed))
+    if total_changed == 0:
         return ChangeType.MODIFIED
+
+    # If most changed content is brand-new → ADDED
+    if added / total_changed >= 0.6:
+        return ChangeType.ADDED
+    # If most changed content disappeared → REMOVED
+    if removed / total_changed >= 0.6:
+        return ChangeType.REMOVED
+    # Mixed or both-present → MODIFIED
+    return ChangeType.MODIFIED
 
 
 def compute_diff(prev: np.ndarray, curr: np.ndarray) -> DiffResponse:
@@ -117,9 +135,10 @@ def compute_diff(prev: np.ndarray, curr: np.ndarray) -> DiffResponse:
     gray_prev = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
     gray_curr = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY)
 
-    # 1. Gaussian blur to reduce noise / anti-aliasing artifacts
-    blurred_prev = cv2.GaussianBlur(gray_prev, (5, 5), 0)
-    blurred_curr = cv2.GaussianBlur(gray_curr, (5, 5), 0)
+    # 1. Gaussian blur to reduce noise / anti-aliasing artifacts (small kernel
+    #    to preserve thin lines such as walls)
+    blurred_prev = cv2.GaussianBlur(gray_prev, (3, 3), 0)
+    blurred_curr = cv2.GaussianBlur(gray_curr, (3, 3), 0)
 
     # 2. Absolute difference
     diff = cv2.absdiff(blurred_prev, blurred_curr)
@@ -144,7 +163,7 @@ def compute_diff(prev: np.ndarray, curr: np.ndarray) -> DiffResponse:
         x, y, cw, ch = cv2.boundingRect(cnt)
         area = cw * ch
         if area > 200:
-            change_type = classify_region(gray_prev, gray_curr, x, y, cw, ch)
+            change_type = classify_region(gray_prev, gray_curr, thresh, x, y, cw, ch)
             area_pct = round(area / (w * h) * 100, 3)
             regions.append(ChangeRegion(
                 x=x, y=y, w=cw, h=ch,
