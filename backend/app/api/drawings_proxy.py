@@ -40,6 +40,7 @@ async def upload_drawing(
     file_bytes = await file.read()
     ext = file.filename.split(".")[-1] if file.filename else "pdf"
     file_path = f"{user_id}/{uuid.uuid4()}.{ext}"
+    sheet_name = file.filename.replace(f".{ext}", "") if file.filename else "Untitled"
 
     async with httpx.AsyncClient() as client:
         # 1. Upload file to Supabase Storage
@@ -56,7 +57,64 @@ async def upload_drawing(
 
         file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/drawings/{file_path}"
 
-        # 2. Get or create default project
+        # 2. Check if a drawing with the same sheet_name already exists
+        existing_resp = await client.get(
+            f"{_SUPABASE_REST_URL}/drawings",
+            headers=headers,
+            params={"user_id": f"eq.{user_id}", "sheet_name": f"eq.{sheet_name}", "select": "*", "limit": "1"},
+        )
+        existing_drawings = existing_resp.json() if existing_resp.status_code == 200 else []
+
+        if existing_drawings:
+            # New revision for existing drawing
+            drawing = existing_drawings[0]
+            drawing_id = drawing["id"]
+
+            # Get current max revision number
+            rev_resp = await client.get(
+                f"{_SUPABASE_REST_URL}/revisions",
+                headers=headers,
+                params={"drawing_id": f"eq.{drawing_id}", "select": "revision_number", "order": "revision_number.desc", "limit": "1"},
+            )
+            existing_revs = rev_resp.json() if rev_resp.status_code == 200 else []
+            next_rev = (existing_revs[0]["revision_number"] + 1) if existing_revs else 1
+
+            # Create new revision
+            revision_resp = await client.post(
+                f"{_SUPABASE_REST_URL}/revisions",
+                headers={**headers, "Prefer": "return=representation"},
+                json={
+                    "drawing_id": drawing_id,
+                    "revision_number": next_rev,
+                    "file_url": file_url,
+                    "uploaded_by": user_id,
+                    "notes": f"Revision {next_rev}",
+                },
+            )
+            if revision_resp.status_code not in (200, 201):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Revision creation failed (status {revision_resp.status_code}): {revision_resp.text}",
+                )
+
+            revision = revision_resp.json()[0]
+
+            # Update drawing's file_url and current_revision
+            await client.patch(
+                f"{_SUPABASE_REST_URL}/drawings",
+                headers=headers,
+                params={"id": f"eq.{drawing_id}"},
+                json={"file_url": file_url, "current_revision": next_rev},
+            )
+
+            return {
+                "drawing": {**drawing, "current_revision": next_rev, "file_url": file_url},
+                "revision": revision,
+                "file_url": file_url,
+                "is_new_revision": True,
+            }
+
+        # 3. Get or create default project
         project_resp = await client.get(
             f"{_SUPABASE_REST_URL}/projects",
             headers=headers,
@@ -79,8 +137,7 @@ async def upload_drawing(
                 )
             project_id = create_resp.json()[0]["id"]
 
-        # 3. Create drawing record
-        sheet_name = file.filename.replace(f".{ext}", "") if file.filename else "Untitled"
+        # 4. Create drawing record
         drawing_resp = await client.post(
             f"{_SUPABASE_REST_URL}/drawings",
             headers={**headers, "Prefer": "return=representation"},
@@ -100,7 +157,7 @@ async def upload_drawing(
         drawing = drawing_resp.json()[0]
         drawing_id = drawing["id"]
 
-        # 4. Create initial revision
+        # 5. Create initial revision
         revision_resp = await client.post(
             f"{_SUPABASE_REST_URL}/revisions",
             headers={**headers, "Prefer": "return=representation"},
@@ -124,6 +181,7 @@ async def upload_drawing(
             "drawing": drawing,
             "revision": revision,
             "file_url": file_url,
+            "is_new_revision": False,
         }
 
 

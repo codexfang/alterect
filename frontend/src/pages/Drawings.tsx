@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Search, FileText, Loader2, ExternalLink, GitCompare } from 'lucide-react'
+import { Upload, Search, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/hooks/useAuth'
@@ -173,23 +173,22 @@ export default function Drawings() {
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-3">
                       {d.file_url && (
                         <a
                           href={d.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-body text-rust hover:text-rust/80 transition-colors"
+                          className="text-body text-rust hover:text-rust/80 transition-colors"
                         >
-                          Open
-                          <ExternalLink size={14} />
+                          View
                         </a>
                       )}
+                      <span className="text-dove/30 text-body font-light select-none">/</span>
                       <button
                         onClick={() => navigate(`/diffs/${d.id}`)}
-                        className="inline-flex items-center gap-1 text-body text-graphite hover:text-ink transition-colors"
+                        className="text-body text-graphite hover:text-ink transition-colors"
                       >
-                        <GitCompare size={14} />
                         Compare
                       </button>
                     </div>
