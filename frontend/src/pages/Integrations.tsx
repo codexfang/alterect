@@ -31,16 +31,20 @@ export default function Integrations() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
     const connectedParam = searchParams.get('connected')
     const errorParam = searchParams.get('error')
     if (connectedParam) {
+      setErrorMsg(null)
       setSuccessMsg(`${integrationList.find((i) => i.id === connectedParam)?.name ?? connectedParam} connected successfully!`)
       setTimeout(() => setSuccessMsg(null), 4000)
     }
     if (errorParam) {
       setSuccessMsg(null)
+      setErrorMsg(errorParam === 'token_exchange_failed' ? 'Failed to connect. Check Render logs for details.' : `OAuth error: ${errorParam}`)
+      setTimeout(() => setErrorMsg(null), 8000)
     }
     loadStatus()
   }, [searchParams])
@@ -90,6 +94,12 @@ export default function Integrations() {
         <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-2 text-body text-green-800">
           <Check size={16} className="shrink-0" />
           {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-2 text-body text-red-800">
+          <X size={16} className="shrink-0" />
+          {errorMsg}
         </div>
       )}
 

@@ -81,6 +81,9 @@ async def oauth_login(
         "state": state,
     }
 
+    if provider == "dropbox":
+        params["token_access_type"] = "offline"
+
     auth_url = f"{config['authorize_url']}?{'&'.join(f'{k}={v}' for k, v in params.items())}"
 
     logger.info(f"Redirecting user {uid} to {provider} OAuth: {auth_url[:80]}...")
@@ -131,6 +134,9 @@ async def oauth_callback(
         "redirect_uri": redirect_uri,
         "grant_type": "authorization_code",
     }
+
+    if provider == "dropbox":
+        token_data["token_access_type"] = "offline"
 
     token_url = config["token_url"]
     headers = {"Accept": "application/json"}
