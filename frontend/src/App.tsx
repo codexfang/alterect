@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/hooks/useAuth'
 import { ToastProvider } from '@/components/ui/Toast'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -10,13 +9,9 @@ import Dashboard from '@/pages/Dashboard'
 import Drawings from '@/pages/Drawings'
 import DiffView from '@/pages/DiffView'
 import Alerts from '@/pages/Alerts'
-
 import Integrations from '@/pages/Integrations'
 import Login from '@/pages/Login'
-import Signup from '@/pages/Signup'
 import Legal from '@/pages/Legal'
-
-const queryClient = new QueryClient()
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -54,33 +49,31 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename="/alterect">
-        <AuthProvider>
-          <ToastProvider>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/overview" element={<Landing />} />
-              <Route path="/workflow" element={<Landing />} />
-              <Route path="/features" element={<Landing />} />
-              <Route path="/pricing" element={<Landing />} />
-              <Route path="/resources" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/developer" element={<Navigate to="/login" replace />} />
-              <Route path="/signup" element={<Navigate to="/login" replace />} />
-              <Route path="/privacy" element={<Legal />} />
-              <Route path="/terms" element={<Legal />} />
-              <Route path="/cookies" element={<Legal />} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/drawings" element={<ProtectedRoute><Drawings /></ProtectedRoute>} />
-              <Route path="/diffs/:id?" element={<ProtectedRoute><DiffView /></ProtectedRoute>} />
-              <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
-              <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <BrowserRouter basename="/alterect">
+      <AuthProvider>
+        <ToastProvider>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/overview" element={<Landing />} />
+            <Route path="/workflow" element={<Landing />} />
+            <Route path="/features" element={<Landing />} />
+            <Route path="/pricing" element={<Landing />} />
+            <Route path="/resources" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/developer" element={<Navigate to="/login" replace />} />
+            <Route path="/signup" element={<Navigate to="/login" replace />} />
+            <Route path="/privacy" element={<Legal />} />
+            <Route path="/terms" element={<Legal />} />
+            <Route path="/cookies" element={<Legal />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/drawings" element={<ProtectedRoute><Drawings /></ProtectedRoute>} />
+            <Route path="/diffs/:id?" element={<ProtectedRoute><DiffView /></ProtectedRoute>} />
+            <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+            <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }

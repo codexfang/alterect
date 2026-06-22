@@ -1,17 +1,10 @@
-"""
-FastAPI application entry point for Alterect API.
-"""
-
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.core.database import init_db
-from app.api.routes import router as api_router
 from app.api.oauth import router as oauth_router
 from app.api.diff import router as diff_router
 from app.api.drawings_proxy import router as drawings_proxy_router
@@ -25,10 +18,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database and services on startup."""
     logger.info(f"Starting {settings.APP_NAME} v{settings.VERSION}")
-    await init_db()
-    logger.info("Database initialized")
     yield
     logger.info("Shutting down...")
 
@@ -52,7 +42,6 @@ app.add_middleware(
 )
 
 # API Routes
-app.include_router(api_router, prefix="/api")
 app.include_router(oauth_router, prefix="/api")
 app.include_router(diff_router, prefix="/api")
 app.include_router(drawings_proxy_router, prefix="/api")
