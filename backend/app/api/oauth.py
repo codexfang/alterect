@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/oauth", tags=["oauth"])
 
 SUPABASE_REST_URL = f"{settings.SUPABASE_URL}/rest/v1" if settings.SUPABASE_URL else None
+SUPABASE_KEY = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY or ""
 SUPABASE_HEADERS = {
-    "apikey": settings.SUPABASE_ANON_KEY or "",
-    "Authorization": f"Bearer {settings.SUPABASE_ANON_KEY or ''}",
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
     "Content-Type": "application/json",
 }
 
