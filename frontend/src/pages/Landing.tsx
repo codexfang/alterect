@@ -250,7 +250,7 @@ export default function Landing() {
                     </div>
                     <span className="px-2.5 py-0.5 text-[11px] bg-rust/10 text-rust rounded-full font-[430] shrink-0">6 changes</span>
                   </div>
-                  <div className="flex gap-1.5 shrink-0">
+                  <div className="hidden md:flex gap-1.5 shrink-0">
                     <span className="px-3 py-1 text-[11px] bg-rust/10 text-rust rounded-lg font-[430]">Side by side</span>
                     <span className="px-3 py-1 text-[11px] text-graphite rounded-lg">Overlay</span>
                   </div>
@@ -378,7 +378,7 @@ export default function Landing() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-rust font-[430] cursor-pointer hover:text-rust/70 transition-colors">
+                  <div className="hidden md:flex items-center gap-1.5 text-[11px] text-rust font-[430] cursor-pointer hover:text-rust/70 transition-colors">
                     <Eye size={13} />
                     <span>View full timeline</span>
                   </div>
