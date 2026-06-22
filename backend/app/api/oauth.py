@@ -147,6 +147,9 @@ async def oauth_callback(
                 auth_str = f"{config['client_id']}:{config['client_secret']}"
                 import base64
                 headers["Authorization"] = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
+                # Don't send client_id/client_secret in body when using Basic auth
+                token_data.pop("client_id", None)
+                token_data.pop("client_secret", None)
 
             if provider == "slack":
                 token_resp = await client.post(token_url, data=token_data, headers=headers)
