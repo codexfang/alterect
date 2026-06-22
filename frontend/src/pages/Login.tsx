@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -67,7 +67,7 @@ export default function Login() {
           </form>
           <p className="text-center text-caption text-graphite mt-6">
             Don&apos;t have an account?{' '}
-            <a href="/signup" className="text-ink font-[450] hover:underline">Sign up</a>
+            <Link to="/signup" className="text-ink font-[450] hover:underline">Sign up</Link>
           </p>
         </motion.div>
       </div>

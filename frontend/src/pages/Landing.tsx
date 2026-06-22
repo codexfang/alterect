@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
 import {
   ArrowRight,
@@ -29,16 +30,16 @@ const steps = [
 
 const pricingPlans = [
   {
-    name: 'Starter', price: '$99', period: '/month', desc: 'For small teams getting started', features: ['1 project', '50 drawings/month', 'Basic diff detection', 'Email alerts', 'Manual upload', '7-day drawing history'],
-    cta: 'Start 7-day free trial', popular: false,
+    name: 'Starter', price: 'Coming soon', period: '', desc: 'For small teams getting started', features: ['1 project', '50 drawings/month', 'Basic diff detection', 'Email alerts', 'Manual upload', '7-day drawing history'],
+    cta: 'Join waitlist', popular: false,
   },
   {
-    name: 'Professional', price: '$249', period: '/month', desc: 'For GCs and subcontractors', features: ['Unlimited drawings', 'AI-powered diff engine', 'Auto-ingestion (Dropbox, Box)', 'Slack + email alerts', 'Risk scoring', 'Visual timeline', 'Priority support'],
-    cta: 'Get started', popular: true,
+    name: 'Professional', price: 'Coming soon', period: '', desc: 'For GCs and subcontractors', features: ['Unlimited drawings', 'AI-powered diff engine', 'Auto-ingestion (Dropbox, Box)', 'Slack + email alerts', 'Risk scoring', 'Visual timeline', 'Priority support'],
+    cta: 'Join waitlist', popular: true,
   },
   {
-    name: 'Enterprise', price: '$599', period: '/month', desc: 'For growing construction firms', features: ['Up to 5 projects', 'All Professional features', 'Team collaboration', 'Custom Slack channels', 'Advanced analytics', 'API access', 'Dedicated support'],
-    cta: 'Get started', popular: false,
+    name: 'Enterprise', price: 'Coming soon', period: '', desc: 'For growing construction firms', features: ['Up to 5 projects', 'All Professional features', 'Team collaboration', 'Custom Slack channels', 'Advanced analytics', 'API access', 'Dedicated support'],
+    cta: 'Join waitlist', popular: false,
   },
 ]
 
@@ -85,6 +86,7 @@ function Section({ children, className = '', id }: { children: React.ReactNode; 
 }
 
 export default function Landing() {
+  const navigate = useNavigate()
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   return (
     <div className="min-h-screen bg-white overflow-hidden">
@@ -121,8 +123,8 @@ export default function Landing() {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => window.location.href = '/login'}>Sign in</Button>
-            <Button size="sm" onClick={() => window.location.href = '/signup'}>Get started</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign in</Button>
+            <Button size="sm" onClick={() => navigate('/signup')}>Join waitlist</Button>
           </div>
         </div>
       </motion.nav>
@@ -466,11 +468,11 @@ export default function Landing() {
                     ))}
                   </ul>
                   <div className="mt-8">
-                    <Button variant={plan.popular ? 'primary' : 'secondary'} className="w-full" onClick={() => window.location.href = '/signup'}>
+                    <Button variant={plan.popular ? 'primary' : 'secondary'} className="w-full" onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}>
                       {plan.cta}
                       <ArrowRight size={16} className="ml-1.5" />
                     </Button>
-                    <p className="text-[11px] text-graphite text-center mt-2">{plan.name === 'Starter' ? 'Enter billing info — free for 7 days, cancel anytime' : 'Enter billing info — cancel anytime'}</p>
+                    <p className="text-[11px] text-graphite text-center mt-2">Stay tuned — we're launching soon</p>
                   </div>
                 </Card>
               </motion.div>
@@ -479,7 +481,41 @@ export default function Landing() {
         </div>
       </Section>
 
+      {/* ─── WAITLIST ─── */}
+      <Section id="waitlist" className="py-28 relative">
+        <div className="max-w-2xl mx-auto px-6 text-center">
+          <motion.div variants={fadeUp}>
+            <span className="text-caption text-rust font-[450] uppercase tracking-widest">Get early access</span>
+            <h2 className="font-serif text-heading text-ink mt-3">Join the waitlist</h2>
+            <p className="text-body text-ash mt-4 max-w-md mx-auto">
+              Be the first to know when Alterect launches. Enter your details and we'll keep you posted.
+            </p>
+          </motion.div>
 
+          <motion.form
+            variants={fadeUp}
+            onSubmit={(e) => { e.preventDefault(); alert('Thanks for joining! We\'ll be in touch soon.') }}
+            className="mt-10 max-w-sm mx-auto space-y-4 text-left"
+          >
+            <div>
+              <label className="text-caption text-graphite font-[430] block mb-1">Name</label>
+              <input type="text" required placeholder="Your name" className="w-full px-4 py-3 bg-white rounded-[16px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 border border-dove/20" />
+            </div>
+            <div>
+              <label className="text-caption text-graphite font-[430] block mb-1">Email</label>
+              <input type="email" required placeholder="you@company.com" className="w-full px-4 py-3 bg-white rounded-[16px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 border border-dove/20" />
+            </div>
+            <div>
+              <label className="text-caption text-graphite font-[430] block mb-1">Company</label>
+              <input type="text" placeholder="Your company (optional)" className="w-full px-4 py-3 bg-white rounded-[16px] text-body text-ink placeholder:text-graphite/60 focus:outline-none focus:ring-2 focus:ring-ink/10 border border-dove/20" />
+            </div>
+            <Button type="submit" className="w-full">
+              Join waitlist
+              <ArrowRight size={16} className="ml-1.5" />
+            </Button>
+          </motion.form>
+        </div>
+      </Section>
 
       {/* ─── RESOURCES / FAQ ─── */}
       <Section id="resources" className="py-28 bg-fog">

@@ -1,8 +1,11 @@
+import { useNavigate } from 'react-router-dom'
 import { GitCompare } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
 export default function DiffView() {
+  const navigate = useNavigate()
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -19,7 +22,7 @@ export default function DiffView() {
           <p className="text-body text-graphite mb-6 max-w-sm text-center">
             Upload a drawing and create a new revision to see what changed.
           </p>
-          <Button onClick={() => window.location.href = '/drawings'}>
+          <Button onClick={() => navigate('/drawings')}>
             Go to Drawings
           </Button>
         </div>

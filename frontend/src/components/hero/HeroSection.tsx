@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Play, Shield, GitBranch, Bell, Zap, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -29,6 +30,7 @@ const lineData = [
 ]
 
 export default function HeroSection() {
+  const navigate = useNavigate()
   const [loaded, setLoaded] = useState(false)
   const [prog, setProg] = useState(0)
 
@@ -78,8 +80,8 @@ export default function HeroSection() {
           </p>
 
           <div className="flex items-center justify-center gap-4 mt-8 animate-card-entrance card-entrance-delay-4">
-            <Button size="lg" onClick={() => window.location.href = '/signup'}>
-              Try it free
+            <Button size="lg" onClick={() => navigate('/signup')}>
+              Join waitlist
               <ArrowRight size={18} className="ml-1.5" />
             </Button>
             <button
