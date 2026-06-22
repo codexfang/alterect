@@ -138,12 +138,13 @@ async def upload_drawing(
                 )
             project_id = create_resp.json()[0]["id"]
 
-        # 4. Create drawing record
+        # 4. Create drawing record with current_revision=1
         drawing_body = {
             "project_id": project_id,
             "user_id": user_id,
             "sheet_name": sheet_name,
             "file_url": file_url,
+            "current_revision": 1,
         }
         if discipline:
             drawing_body["discipline"] = discipline
@@ -161,13 +162,13 @@ async def upload_drawing(
         drawing = drawing_resp.json()[0]
         drawing_id = drawing["id"]
 
-        # 5. Create initial revision
+        # 5. Create initial revision (revision 1)
         revision_resp = await client.post(
             f"{_SUPABASE_REST_URL}/revisions",
             headers={**headers, "Prefer": "return=representation"},
             json={
                 "drawing_id": drawing_id,
-                "revision_number": 0,
+                "revision_number": 1,
                 "file_url": file_url,
                 "uploaded_by": user_id,
                 "notes": "Initial upload",
