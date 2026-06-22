@@ -59,12 +59,31 @@ async def upload_drawing(
         file_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/drawings/{file_path}"
 
         # 2. Check if a drawing with the same sheet_name already exists
-        existing_resp = await client.get(
-            f"{_SUPABASE_REST_URL}/drawings",
-            headers=headers,
-            params={"user_id": f"eq.{user_id}", "sheet_name": f"eq.{sheet_name}", "select": "*", "limit": "1"},
-        )
-        existing_drawings = existing_resp.json() if existing_resp.status_code == 200 else []
+        existing_drawings = []
+        try:
+            eq_resp = await client.get(
+                f"{_SUPABASE_REST_URL}/drawings",
+                headers=headers,
+                params={"user_id": f"eq.{user_id}", "sheet_name": f"eq.{sheet_name}", "select": "*", "limit": "1"},
+            )
+            if eq_resp.status_code == 200:
+                existing_drawings = eq_resp.json()
+        except Exception:
+            pass
+
+        if not existing_drawings:
+            # Fallback: fetch all user drawings and match in Python
+            try:
+                all_resp = await client.get(
+                    f"{_SUPABASE_REST_URL}/drawings",
+                    headers=headers,
+                    params={"user_id": f"eq.{user_id}", "select": "*"},
+                )
+                if all_resp.status_code == 200:
+                    all_drawings = all_resp.json()
+                    existing_drawings = [d for d in all_drawings if d.get("sheet_name", "").lower() == sheet_name.lower()]
+            except Exception:
+                pass
 
         if existing_drawings:
             # New revision for existing drawing
