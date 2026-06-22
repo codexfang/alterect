@@ -84,48 +84,6 @@ async def download_image(url: str) -> np.ndarray:
     return img
 
 
-def classify_region(
-    prev_gray: np.ndarray, curr_gray: np.ndarray,
-    region_mask: np.ndarray, x: int, y: int, w: int, h: int,
-) -> ChangeType:
-    """Per-pixel classification inside the region mask.
-    
-    For each changed pixel we check the original images to determine whether
-    content was *added* (dark in curr, white in prev), *removed* (dark in
-    prev, white in curr), or *modified* (dark in both, just shifted).
-    Majority vote wins.
-    """
-    roi_prev = prev_gray[y:y+h, x:x+w]
-    roi_curr = curr_gray[y:y+h, x:x+w]
-
-    # Binarise each ROI adaptively with Otsu
-    prev_bin = cv2.threshold(roi_prev, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-    curr_bin = cv2.threshold(roi_curr, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-
-    # Only look at pixels that the diff says changed
-    changed = region_mask[y:y+h, x:x+w] > 0
-
-    # For each changed pixel: is there drawing content in prev / curr?
-    prev_has = (prev_bin > 0) & changed
-    curr_has = (curr_bin > 0) & changed
-
-    added   = int(np.sum(curr_has & ~prev_has))
-    removed = int(np.sum(prev_has & ~curr_has))
-
-    total_changed = int(np.sum(changed))
-    if total_changed == 0:
-        return ChangeType.MODIFIED
-
-    # If most changed content is brand-new → ADDED
-    if added / total_changed >= 0.6:
-        return ChangeType.ADDED
-    # If most changed content disappeared → REMOVED
-    if removed / total_changed >= 0.6:
-        return ChangeType.REMOVED
-    # Mixed or both-present → MODIFIED
-    return ChangeType.MODIFIED
-
-
 def compute_diff(prev: np.ndarray, curr: np.ndarray) -> DiffResponse:
     h, w = curr.shape[:2]
 
@@ -135,65 +93,104 @@ def compute_diff(prev: np.ndarray, curr: np.ndarray) -> DiffResponse:
     gray_prev = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
     gray_curr = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY)
 
-    # 1. Gaussian blur to reduce noise / anti-aliasing artifacts (small kernel
-    #    to preserve thin lines such as walls)
-    blurred_prev = cv2.GaussianBlur(gray_prev, (3, 3), 0)
-    blurred_curr = cv2.GaussianBlur(gray_curr, (3, 3), 0)
+    blur_prev = cv2.GaussianBlur(gray_prev, (3, 3), 0)
+    blur_curr = cv2.GaussianBlur(gray_curr, (3, 3), 0)
 
-    # 2. Absolute difference
-    diff = cv2.absdiff(blurred_prev, blurred_curr)
+    # ─── Content mask extraction ───────────────────────────────────────
+    # For line drawings (blueprints), "content" = dark ink pixels.
+    # Threshold at 200 to separate drawn content from the white/light
+    # background while still catching thin lines.
+    _, prev_content = cv2.threshold(blur_prev, 200, 255, cv2.THRESH_BINARY_INV)
+    _, curr_content = cv2.threshold(blur_curr, 200, 255, cv2.THRESH_BINARY_INV)
 
-    # 3. Otsu's threshold — adaptively picks the best cutoff
-    _, thresh = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    # Dilate *very slightly* (1 px) so that anti-aliased edge pixels
+    # don't produce phantom diffs ─ a drawn line at the same position
+    # in both images will overlap after dilation.
+    d_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+    prev_mask = cv2.dilate(prev_content, d_k)
+    curr_mask = cv2.dilate(curr_content, d_k)
 
-    # 4. Morphological close to fill small gaps inside changed regions
-    close_kernel = np.ones((5, 5), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel)
+    # ─── Structural diff ──────────────────────────────────────────────
+    # Content in prev but NOT in curr  →  removed (e.g. a deleted wall)
+    removed_mask = cv2.subtract(prev_mask, curr_mask)
+    # Content in curr but NOT in prev  →  added   (e.g. a new wall)
+    added_mask   = cv2.subtract(curr_mask, prev_mask)
+    # Any structural change
+    changed_mask = cv2.bitwise_or(removed_mask, added_mask)
 
-    # 5. Morphological open to remove isolated noise pixels
-    open_kernel = np.ones((3, 3), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, open_kernel)
+    # ─── Region formation ─────────────────────────────────────────────
+    # Connect nearby changed pixels into coherent bounding boxes
+    close_k = np.ones((5, 5), np.uint8)
+    region_mask = cv2.morphologyEx(changed_mask, cv2.MORPH_CLOSE, close_k)
 
-    # 6. Find contours
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Remove tiny specks
+    open_k = np.ones((3, 3), np.uint8)
+    region_mask = cv2.morphologyEx(region_mask, cv2.MORPH_OPEN, open_k)
 
-    # 7. Classify and build regions
+    contours, _ = cv2.findContours(region_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # ─── Classify & build regions ─────────────────────────────────────
+    MIN_AREA = 200
     regions: List[ChangeRegion] = []
     for cnt in contours:
         x, y, cw, ch = cv2.boundingRect(cnt)
         area = cw * ch
-        if area > 200:
-            change_type = classify_region(gray_prev, gray_curr, thresh, x, y, cw, ch)
-            area_pct = round(area / (w * h) * 100, 3)
-            regions.append(ChangeRegion(
-                x=x, y=y, w=cw, h=ch,
-                area=area,
-                area_percentage=area_pct,
-                change_type=change_type,
-            ))
+        if area < MIN_AREA:
+            continue
 
+        # Count added vs removed *content pixels* (not bounding-box area)
+        # within this region.
+        roi_added   = added_mask[y:y+ch, x:x+cw]
+        roi_removed = removed_mask[y:y+ch, x:x+cw]
+        n_added   = cv2.countNonZero(roi_added)
+        n_removed = cv2.countNonZero(roi_removed)
+
+        # — exclusively added content
+        if n_added > 0 and n_removed == 0:
+            ct = ChangeType.ADDED
+        # — exclusively removed content
+        elif n_removed > 0 and n_added == 0:
+            ct = ChangeType.REMOVED
+        # — strongly one-sided
+        elif n_added > n_removed * 2:
+            ct = ChangeType.ADDED
+        elif n_removed > n_added * 2:
+            ct = ChangeType.REMOVED
+        # — roughly balanced = moved / reshaped
+        else:
+            ct = ChangeType.MODIFIED
+
+        area_pct = round(area / (w * h) * 100, 3)
+        regions.append(ChangeRegion(
+            x=x, y=y, w=cw, h=ch,
+            area=area,
+            area_percentage=area_pct,
+            change_type=ct,
+        ))
+
+    # ─── Stats ────────────────────────────────────────────────────────
     total_pixels = w * h
-    changed_pixels = int(cv2.countNonZero(thresh))
+    changed_pixels = int(cv2.countNonZero(changed_mask))
     change_percentage = round(changed_pixels / total_pixels * 100, 2) if total_pixels > 0 else 0
 
-    # 8. Build coloured overlay with per-region labels
+    # ─── Overlay ──────────────────────────────────────────────────────
     overlay = curr.copy()
     for r in regions:
         if r.change_type == ChangeType.ADDED:
-            color = (0, 200, 0)    # green
+            color = (0, 200, 0)      # green
             label = "ADDED"
         elif r.change_type == ChangeType.REMOVED:
-            color = (0, 0, 255)    # red
+            color = (0, 0, 255)      # red
             label = "REMOVED"
         else:
-            color = (0, 165, 255)  # orange
-            label = "CHANGED"
+            color = (0, 165, 255)    # orange
+            label = "MODIFIED"
 
         cv2.rectangle(overlay, (r.x, r.y), (r.x + r.w, r.y + r.h), color, 3)
         (tw, th_pt), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        # label background
         label_y = max(r.y - 6, th_pt + 4)
-        cv2.rectangle(overlay, (r.x, label_y - th_pt - 2), (r.x + tw + 4, label_y + 2), color, -1)
+        cv2.rectangle(overlay, (r.x, label_y - th_pt - 2),
+                      (r.x + tw + 4, label_y + 2), color, -1)
         cv2.putText(overlay, label, (r.x + 2, label_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
